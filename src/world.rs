@@ -283,6 +283,14 @@ impl World {
         }
     }
 
+    pub fn fire(&self, start: Pos, off: Offset) -> Pos {
+        let mut pos = start;
+        while TILE_INFOS[self[pos].kind].walkable {
+            pos += off
+        }
+        pos
+    }
+
     pub fn carve_line(&mut self, start: Pos, end: Pos, brush_size: u8) {
         // based on https://www.redblobgames.com/grids/line-drawing.html (2.1)
         self.carve_floor(start, brush_size);
