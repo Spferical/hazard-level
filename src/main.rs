@@ -111,7 +111,7 @@ impl Ui {
                     mut time_left,
                 } => {
                     for pt in line2d(LineAlg::Bresenham, p1.into(), p2.into()) {
-                        let tile = self.gs.player_memory[pt.into()];
+                        let tile = self.gs.world[pt.into()];
                         let map_bg = get_printable(tile.kind, seen.contains(&pt.into())).bg;
                         let rect_pos = self.map_to_map_rect(pt.into(), map_rect);
                         let screen_pos = self.map_rect_to_screen(rect_pos, map_rect);
@@ -207,7 +207,7 @@ impl Ui {
             h as i32 - 1,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_BLACK),
-            "move:←↓↑→",
+            "move:←↓↑→ shoot:shift+move",
         );
         ctx.print_color_centered(
             0,
