@@ -5,7 +5,7 @@ use std::collections::HashSet;
 /// right triangle with one corner on the origin.
 /// A QuadTransform takes an (x, y) position in the first quadrant
 /// and rotates/reflects it to get the corresponding position in another.
-const QUAD_TRANSFORMATIONS: [[i64; 4]; 8] = [
+const QUAD_TRANSFORMATIONS: [[i32; 4]; 8] = [
     [1, 0, 0, 1],
     [0, 1, 1, 0],
     [0, -1, 1, 0],
@@ -25,7 +25,7 @@ fn apply_quad_transform(quad: usize, off: Offset) -> Offset {
 }
 
 /// Uses shadowcasting to return set of positions visible from pos.
-pub fn calculate_fov(pos: Pos, radius: i64, world: &World) -> HashSet<Pos> {
+pub fn calculate_fov(pos: Pos, radius: i32, world: &World) -> HashSet<Pos> {
     let mut seen = HashSet::new();
     seen.insert(pos);
     for quadrant in 0..8 {
@@ -41,10 +41,10 @@ pub fn calculate_fov(pos: Pos, radius: i64, world: &World) -> HashSet<Pos> {
 fn cast_light(
     seen: &mut HashSet<Pos>,
     start_pos: Pos,
-    start_y: i64,
+    start_y: i32,
     mut start_slope: f64,
     end_slope: f64,
-    radius: i64,
+    radius: i32,
     quad: usize,
     world: &World,
 ) {

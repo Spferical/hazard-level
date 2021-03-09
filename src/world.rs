@@ -11,7 +11,7 @@ use std::ops::{Add, AddAssign, Index, IndexMut, Mul};
 use crate::fov;
 
 pub const CHUNKSIZE: usize = 16;
-pub const FOV_RANGE: i64 = 8;
+pub const FOV_RANGE: i32 = 8;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -31,14 +31,14 @@ macro_rules! modulo {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct Pos {
-    pub x: i64,
-    pub y: i64,
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct Offset {
-    pub x: i64,
-    pub y: i64,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Offset {
@@ -75,10 +75,10 @@ impl Offset {
     }
 }
 
-impl Mul<i64> for Offset {
+impl Mul<i32> for Offset {
     type Output = Offset;
 
-    fn mul(self, x: i64) -> Offset {
+    fn mul(self, x: i32) -> Offset {
         Offset {
             x: self.x * x,
             y: self.y * x,
@@ -86,9 +86,9 @@ impl Mul<i64> for Offset {
     }
 }
 
-impl Div<i64> for Offset {
+impl Div<i32> for Offset {
     type Output = Offset;
-    fn div(self, x: i64) -> Offset {
+    fn div(self, x: i32) -> Offset {
         Offset {
             x: self.x / x,
             y: self.y / x,
@@ -146,23 +146,23 @@ impl AddAssign<Offset> for Pos {
 
 fn get_chunk_index(pos: Pos) -> ChunkIndex {
     ChunkIndex {
-        x: round_down!(pos.x, CHUNKSIZE as i64) / CHUNKSIZE as i64,
-        y: round_down!(pos.y, CHUNKSIZE as i64) / CHUNKSIZE as i64,
+        x: round_down!(pos.x, CHUNKSIZE as i32) / CHUNKSIZE as i32,
+        y: round_down!(pos.y, CHUNKSIZE as i32) / CHUNKSIZE as i32,
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 struct ChunkIndex {
-    pub x: i64,
-    pub y: i64,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl ChunkIndex {
     #[allow(dead_code)]
     fn topleft(&self) -> Pos {
         Pos {
-            x: self.x * CHUNKSIZE as i64,
-            y: self.y * CHUNKSIZE as i64,
+            x: self.x * CHUNKSIZE as i32,
+            y: self.y * CHUNKSIZE as i32,
         }
     }
 }
@@ -241,8 +241,8 @@ impl Index<Pos> for World {
     fn index(&self, pos: Pos) -> &Tile {
         let chunk_index = get_chunk_index(pos);
         let chunk = self.chunks.get(&chunk_index).unwrap_or(self.default_chunk);
-        let chunk_offset_x = modulo!(pos.x, CHUNKSIZE as i64);
-        let chunk_offset_y = modulo!(pos.y, CHUNKSIZE as i64);
+        let chunk_offset_x = modulo!(pos.x, CHUNKSIZE as i32);
+        let chunk_offset_y = modulo!(pos.y, CHUNKSIZE as i32);
         &chunk.grid[chunk_offset_x as usize][chunk_offset_y as usize]
     }
 }
@@ -254,8 +254,8 @@ impl IndexMut<Pos> for World {
             .chunks
             .entry(chunk_index)
             .or_insert(*self.default_chunk);
-        let chunk_offset_x = modulo!(pos.x, CHUNKSIZE as i64);
-        let chunk_offset_y = modulo!(pos.y, CHUNKSIZE as i64);
+        let chunk_offset_x = modulo!(pos.x, CHUNKSIZE as i32);
+        let chunk_offset_y = modulo!(pos.y, CHUNKSIZE as i32);
         &mut chunk.grid[chunk_offset_x as usize][chunk_offset_y as usize]
     }
 }
@@ -273,7 +273,7 @@ impl World {
     }
 
     pub fn carve_floor(&mut self, pos: Pos, brush_size: u8) {
-        let brush_size = brush_size as i64;
+        let brush_size = brush_size as i32;
         let brush_floor = -brush_size / 2;
         let brush_ceil = brush_floor + brush_size;
         for dx in brush_floor..=brush_ceil {
