@@ -2,6 +2,9 @@ use bracket_lib::prelude::*;
 
 use std::ops::{Add, AddAssign, Sub};
 
+mod world;
+mod fov;
+
 struct Pos(i32, i32);
 struct Off(i32, i32);
 

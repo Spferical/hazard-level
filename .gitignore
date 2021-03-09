@@ -1,1 +1,3 @@
 /target
+/wasm/run.js
+/wasm/run_bg.wasm
