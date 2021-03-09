@@ -47,19 +47,26 @@ fn get_printable(tile_kind: TileKind, visible: bool) -> TilePrintable {
     }
 }
 
+struct Rect {
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+}
+
 impl Ui {
     fn move_player(&mut self, off: world::Offset) {
         self.gs.move_player(off);
     }
 
-    fn draw(&mut self, ctx: &mut BTerm) {
+    fn draw_map(&mut self, ctx: &mut BTerm, screen_rect: Rect) {
         let gs = &self.gs;
-        let (w, h) = ctx.get_char_size();
-        let offset_x = gs.player_pos.x - w as i32 / 2;
-        let offset_y = gs.player_pos.y - h as i32 / 2;
+        let (w, h) = (screen_rect.w, screen_rect.h);
+        let offset_x = gs.player_pos.x - w / 2;
+        let offset_y = gs.player_pos.y - h / 2;
         let seen = fov::calculate_fov(gs.player_pos, FOV_RANGE, &gs.world);
-        for x in 0..w as i32 {
-            for y in 0..h as i32 {
+        for x in 0..w {
+            for y in 0..h {
                 let pos = Pos {
                     x: x + offset_x,
                     y: y + offset_y,
@@ -72,8 +79,8 @@ impl Ui {
                 let printable = get_printable(world[pos].kind, seen.contains(&pos));
 
                 ctx.print_color(
-                    x,
-                    y,
+                    x + screen_rect.x,
+                    y + screen_rect.y,
                     printable.fg.into(),
                     printable.bg.into(),
                     printable.symbol,
@@ -81,11 +88,28 @@ impl Ui {
             }
         }
         ctx.print_color(
-            w as i32 / 2,
-            h as i32 / 2,
+            screen_rect.x + w / 2,
+            screen_rect.y + h / 2,
             RGB::named(LIGHT_WHITE),
             get_printable(gs.world[gs.player_pos].kind, true).bg,
             "@",
+        );
+    }
+
+    fn draw(&mut self, ctx: &mut BTerm) {
+        let (w, h) = ctx.get_char_size();
+        let map_rect = Rect {
+            x: 0,
+            y: 0,
+            w: w as i32,
+            h: h as i32 - 1,
+        };
+        self.draw_map(ctx, map_rect);
+        ctx.print_color_centered(
+            h as i32 - 1,
+            RGB::named(LIGHT_WHITE),
+            RGB::named(DARK_BLACK),
+            "move:←↓↑→",
         );
     }
 }
