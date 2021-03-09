@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bracket-lib = "0.7"
+bracket-lib = {git = "https://github.com/amethyst/bracket-lib.git"}
 indexmap = "1.0"
 rand = { version = "0.8", default-features=false, features=["small_rng"] }
 enum-map = "0.6"

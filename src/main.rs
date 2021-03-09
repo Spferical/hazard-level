@@ -1,4 +1,5 @@
 use bracket_lib::prelude::*;
+use std::collections::HashSet;
 
 mod fov;
 mod world;
@@ -33,6 +34,7 @@ enum Effect {
         p1: Pos,
         p2: Pos,
         color: RGB,
+        time_total: f32,
         time_left: f32,
     },
 }
@@ -90,12 +92,13 @@ impl Ui {
             color: RGB::named(LIGHT_WHITE),
             p1: self.gs.player_pos,
             p2: end_pos,
+            time_total: 0.2,
             time_left: 0.2,
         };
         self.effects.push(eff);
     }
 
-    fn handle_effects(&mut self, ctx: &mut BTerm, map_rect: Rect) {
+    fn handle_effects(&mut self, ctx: &mut BTerm, map_rect: Rect, seen: &HashSet<Pos>) {
         let effects: Vec<_> = self.effects.drain(..).collect();
         self.effects = effects
             .into_iter()
@@ -104,11 +107,16 @@ impl Ui {
                     p1,
                     p2,
                     color,
+                    time_total,
                     mut time_left,
                 } => {
                     for pt in line2d(LineAlg::Bresenham, p1.into(), p2.into()) {
+                        let tile = self.gs.player_memory[pt.into()];
+                        let map_bg = get_printable(tile.kind, seen.contains(&pt.into())).bg;
                         let rect_pos = self.map_to_map_rect(pt.into(), map_rect);
                         let screen_pos = self.map_rect_to_screen(rect_pos, map_rect);
+                        let percent_done = (time_total - time_left) / time_total;
+                        let color = color.lerp(map_bg, percent_done);
                         ctx.set_bg(screen_pos.x, screen_pos.y, color);
                     }
                     time_left -= ctx.frame_time_ms / 1000f32;
@@ -118,6 +126,7 @@ impl Ui {
                             p2,
                             color,
                             time_left,
+                            time_total,
                         })
                     } else {
                         None
@@ -148,9 +157,8 @@ impl Ui {
         }
     }
 
-    fn draw_map(&mut self, ctx: &mut BTerm, screen_rect: Rect) {
+    fn draw_map(&mut self, ctx: &mut BTerm, screen_rect: Rect, seen: &HashSet<Pos>) {
         let gs = &self.gs;
-        let seen = fov::calculate_fov(gs.player_pos, FOV_RANGE, &gs.world);
         for rect_x in 0..screen_rect.w {
             for rect_y in 0..screen_rect.h {
                 let rect_pos = Pos {
@@ -169,8 +177,8 @@ impl Ui {
                 ctx.print_color(
                     screen_pos.x,
                     screen_pos.y,
-                    printable.fg.into(),
-                    printable.bg.into(),
+                    printable.fg,
+                    printable.bg,
                     printable.symbol,
                 );
             }
@@ -192,8 +200,9 @@ impl Ui {
             w: w as i32,
             h: h as i32 - 1,
         };
-        self.draw_map(ctx, map_rect);
-        self.handle_effects(ctx, map_rect);
+        let seen = fov::calculate_fov(self.gs.player_pos, FOV_RANGE, &self.gs.world);
+        self.draw_map(ctx, map_rect, &seen);
+        self.handle_effects(ctx, map_rect, &seen);
         ctx.print_color_centered(
             h as i32 - 1,
             RGB::named(LIGHT_WHITE),
@@ -239,12 +248,13 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
 fn main() {
     let context = BTermBuilder::simple80x50()
         .with_title("Roguelike Tutorial")
-        .build();
+        .build()
+        .unwrap();
     let mut gs = world::GameState::new();
     gs.generate_world(RandomNumberGenerator::new().rand());
     let ui = Ui {
         gs,
         effects: vec![],
     };
-    main_loop(context, ui);
+    main_loop(context, ui).unwrap();
 }
