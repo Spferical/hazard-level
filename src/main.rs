@@ -1,3 +1,4 @@
+use crate::world::MobKind;
 use bracket_lib::prelude::*;
 use std::collections::HashSet;
 
@@ -14,6 +15,7 @@ const DARK_BLACK: NamedColor = (0x1c, 0x1c, 0x1c);
 const DARK_WHITE: NamedColor = (0x9c, 0x99, 0x8e);
 const LIGHT_BLACK: NamedColor = (0x54, 0x50, 0x54);
 const LIGHT_WHITE: NamedColor = (0xf8, 0xfc, 0xf8);
+const DARK_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
 
 impl From<world::Pos> for Point {
     fn from(pos: world::Pos) -> Self {
@@ -73,6 +75,21 @@ fn get_printable(tile_kind: TileKind, visible: bool) -> TilePrintable {
     }
 }
 
+struct MobPrintable {
+    symbol: &'static str,
+    fg: RGB,
+}
+
+fn get_mob_printable(kind: MobKind, visible: bool) -> MobPrintable {
+    let (symbol, fg) = match (kind, visible) {
+        (MobKind::Zombie, _) => ("@", DARK_YELLOW),
+    };
+    MobPrintable {
+        symbol,
+        fg: RGB::named(fg),
+    }
+}
+
 #[derive(Clone, Copy)]
 struct Rect {
     x: i32,
@@ -87,11 +104,10 @@ impl Ui {
     }
 
     fn fire(&mut self, off: world::Offset) {
-        let player = self.gs.world.get_player();
-        let end_pos = self.gs.world.fire(player.pos, off);
+        let end_pos = self.gs.world.fire(self.gs.world.player_pos(), off);
         let eff = Effect::Line {
             color: RGB::named(LIGHT_WHITE),
-            p1: player.pos,
+            p1: self.gs.world.player_pos(),
             p2: end_pos,
             time_total: 0.2,
             time_left: 0.2,
@@ -145,18 +161,18 @@ impl Ui {
     }
 
     fn map_to_map_rect(&self, pos: Pos, map_rect: Rect) -> Pos {
-        let player = self.gs.world.get_player();
+        let player_pos = self.gs.world.player_pos();
         pos + Offset {
-            x: -player.pos.x + map_rect.w / 2,
-            y: -player.pos.y + map_rect.h / 2,
+            x: -player_pos.x + map_rect.w / 2,
+            y: -player_pos.y + map_rect.h / 2,
         }
     }
 
     fn map_rect_to_map(&self, pos: Pos, map_rect: Rect) -> Pos {
-        let player = self.gs.world.get_player();
+        let player_pos = self.gs.world.player_pos();
         pos + Offset {
-            x: player.pos.x - map_rect.w / 2,
-            y: player.pos.y - map_rect.h / 2,
+            x: player_pos.x - map_rect.w / 2,
+            y: player_pos.y - map_rect.h / 2,
         }
     }
 
@@ -184,14 +200,25 @@ impl Ui {
                     printable.bg,
                     printable.symbol,
                 );
+
+                if let Some(mob) = self.gs.player_memory.mobs.get(&map_pos) {
+                    let mob_printable = get_mob_printable(mob.kind, seen.contains(&map_pos));
+                    ctx.print_color(
+                        screen_pos.x,
+                        screen_pos.y,
+                        mob_printable.fg,
+                        printable.bg,
+                        mob_printable.symbol,
+                    );
+                }
             }
         }
-        let player = self.gs.world.get_player();
+        let player_pos = self.gs.world.player_pos();
         ctx.print_color(
             screen_rect.x + screen_rect.w / 2,
             screen_rect.y + screen_rect.h / 2,
             RGB::named(LIGHT_WHITE),
-            get_printable(gs.world[player.pos].kind, true).bg,
+            get_printable(gs.world[player_pos].kind, true).bg,
             "@",
         );
     }
@@ -204,8 +231,8 @@ impl Ui {
             w: w as i32,
             h: h as i32 - 1,
         };
-        let player = self.gs.world.get_player();
-        let seen = fov::calculate_fov(player.pos, FOV_RANGE, &self.gs.world);
+        let player_pos = self.gs.world.player_pos();
+        let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
         self.handle_effects(ctx, map_rect, &seen);
         ctx.print_color_centered(

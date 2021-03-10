@@ -3,6 +3,7 @@ use indexmap::map::IndexMap;
 use lazy_static::lazy_static;
 use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
+use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::ops::Div;
 use std::ops::Sub;
@@ -177,7 +178,6 @@ pub enum TileKind {
 
 #[derive(Enum, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum MobKind {
-    Player,
     Zombie,
 }
 
@@ -220,7 +220,6 @@ pub struct Tile {
 
 #[derive(Hash, Debug, Clone, Copy)]
 pub struct Mob {
-    pub pos: Pos,
     pub kind: MobKind,
 }
 
@@ -245,7 +244,8 @@ const UNSEEN_CHUNK: Chunk = Chunk {
 pub struct World {
     chunks: IndexMap<ChunkIndex, Chunk>,
     default_chunk: &'static Chunk,
-    mobs: Vec<Mob>,
+    pub mobs: HashMap<Pos, Mob>,
+    player_pos: Pos,
 }
 
 impl Index<Pos> for World {
@@ -275,29 +275,25 @@ impl IndexMut<Pos> for World {
 
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
+        let mut mobs = HashMap::new();
+        mobs.insert(
+            Pos { x: 1, y: 1 },
+            Mob {
+                kind: MobKind::Zombie,
+            },
+        );
         World {
             chunks: IndexMap::new(),
             default_chunk,
-            mobs: vec![Mob {
-                pos: Pos { x: 0, y: 0 },
-                kind: MobKind::Player,
-            }],
+            mobs,
+            player_pos: Pos { x: 0, y: 0 },
         }
     }
 
-    pub fn get_player(&self) -> &Mob {
-        &self.mobs[0]
-    }
-
-    pub fn mut_player(&mut self) -> &mut Mob {
-        &mut self.mobs[0]
-    }
-
     pub fn move_player(&mut self, offset: Offset, force: bool) -> bool {
-        let player_pos = self.get_player().pos;
-        let new_pos = player_pos + offset;
+        let new_pos = self.player_pos + offset;
         if self[new_pos].kind.is_walkable() || force {
-            self.mut_player().pos += offset;
+            self.player_pos += offset;
             true
         } else {
             false
@@ -367,8 +363,9 @@ impl World {
     }
 
     fn update_mobs(&mut self) {
-        for mob in &self.mobs {
-            if mob.kind != MobKind::Player {
+        for (pos, mob) in &self.mobs {
+            match mob.kind {
+                MobKind::Zombie => {}
             }
         }
     }
@@ -377,6 +374,10 @@ impl World {
         if player_moved {
             self.update_mobs();
         }
+    }
+
+    pub fn player_pos(&self) -> Pos {
+        self.player_pos
     }
 }
 
@@ -415,10 +416,13 @@ impl GameState {
     }
 
     fn update_memory(&mut self) {
-        let player = self.world.get_player();
-        let seen = fov::calculate_fov(player.pos, FOV_RANGE, &self.world);
+        let seen = fov::calculate_fov(self.world.player_pos, FOV_RANGE, &self.world);
+        self.player_memory.mobs.clear();
         for pos in seen {
             self.player_memory[pos] = self.world[pos];
+            if let Some(mob) = self.world.mobs.get(&pos) {
+                self.player_memory.mobs.insert(pos, *mob);
+            }
         }
     }
 }
