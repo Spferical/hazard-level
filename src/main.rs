@@ -87,10 +87,11 @@ impl Ui {
     }
 
     fn fire(&mut self, off: world::Offset) {
-        let end_pos = self.gs.world.fire(self.gs.player_pos, off);
+        let player = self.gs.world.get_player();
+        let end_pos = self.gs.world.fire(player.pos, off);
         let eff = Effect::Line {
             color: RGB::named(LIGHT_WHITE),
-            p1: self.gs.player_pos,
+            p1: player.pos,
             p2: end_pos,
             time_total: 0.2,
             time_left: 0.2,
@@ -144,16 +145,18 @@ impl Ui {
     }
 
     fn map_to_map_rect(&self, pos: Pos, map_rect: Rect) -> Pos {
+        let player = self.gs.world.get_player();
         pos + Offset {
-            x: -self.gs.player_pos.x + map_rect.w / 2,
-            y: -self.gs.player_pos.y + map_rect.h / 2,
+            x: -player.pos.x + map_rect.w / 2,
+            y: -player.pos.y + map_rect.h / 2,
         }
     }
 
     fn map_rect_to_map(&self, pos: Pos, map_rect: Rect) -> Pos {
+        let player = self.gs.world.get_player();
         pos + Offset {
-            x: self.gs.player_pos.x - map_rect.w / 2,
-            y: self.gs.player_pos.y - map_rect.h / 2,
+            x: player.pos.x - map_rect.w / 2,
+            y: player.pos.y - map_rect.h / 2,
         }
     }
 
@@ -183,11 +186,12 @@ impl Ui {
                 );
             }
         }
+        let player = self.gs.world.get_player();
         ctx.print_color(
             screen_rect.x + screen_rect.w / 2,
             screen_rect.y + screen_rect.h / 2,
             RGB::named(LIGHT_WHITE),
-            get_printable(gs.world[gs.player_pos].kind, true).bg,
+            get_printable(gs.world[player.pos].kind, true).bg,
             "@",
         );
     }
@@ -200,7 +204,8 @@ impl Ui {
             w: w as i32,
             h: h as i32 - 1,
         };
-        let seen = fov::calculate_fov(self.gs.player_pos, FOV_RANGE, &self.gs.world);
+        let player = self.gs.world.get_player();
+        let seen = fov::calculate_fov(player.pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
         self.handle_effects(ctx, map_rect, &seen);
         ctx.print_color_centered(

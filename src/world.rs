@@ -175,6 +175,12 @@ pub enum TileKind {
     Unseen,
 }
 
+#[derive(Enum, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum MobKind {
+    Player,
+    Zombie,
+}
+
 pub struct TileKindInfo {
     pub opaque: bool,
     pub walkable: bool,
@@ -212,6 +218,12 @@ pub struct Tile {
     pub kind: TileKind,
 }
 
+#[derive(Hash, Debug, Clone, Copy)]
+pub struct Mob {
+    pub pos: Pos,
+    pub kind: MobKind,
+}
+
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 struct Chunk {
     grid: [[Tile; CHUNKSIZE]; CHUNKSIZE],
@@ -229,10 +241,11 @@ const UNSEEN_CHUNK: Chunk = Chunk {
     }; CHUNKSIZE]; CHUNKSIZE],
 };
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct World {
     chunks: IndexMap<ChunkIndex, Chunk>,
     default_chunk: &'static Chunk,
+    mobs: Vec<Mob>,
 }
 
 impl Index<Pos> for World {
@@ -265,6 +278,29 @@ impl World {
         World {
             chunks: IndexMap::new(),
             default_chunk,
+            mobs: vec![Mob {
+                pos: Pos { x: 0, y: 0 },
+                kind: MobKind::Player,
+            }],
+        }
+    }
+
+    pub fn get_player(&self) -> &Mob {
+        &self.mobs[0]
+    }
+
+    pub fn mut_player(&mut self) -> &mut Mob {
+        &mut self.mobs[0]
+    }
+
+    pub fn move_player(&mut self, offset: Offset, force: bool) -> bool {
+        let player_pos = self.get_player().pos;
+        let new_pos = player_pos + offset;
+        if self[new_pos].kind.is_walkable() || force {
+            self.mut_player().pos += offset;
+            true
+        } else {
+            false
         }
     }
 
@@ -329,6 +365,19 @@ impl World {
             self.carve_floor(pos, brush_size);
         }
     }
+
+    fn update_mobs(&mut self) {
+        for mob in &self.mobs {
+            if mob.kind != MobKind::Player {
+            }
+        }
+    }
+
+    pub fn tick(&mut self, _dt: f32, player_moved: bool) {
+        if player_moved {
+            self.update_mobs();
+        }
+    }
 }
 
 pub fn generate_world(world: &mut World, seed: u64) {
@@ -341,7 +390,6 @@ pub fn generate_world(world: &mut World, seed: u64) {
 }
 
 pub struct GameState {
-    pub player_pos: Pos,
     pub world: World,
     pub player_memory: World,
     pub debug_mode: bool,
@@ -350,7 +398,6 @@ pub struct GameState {
 impl GameState {
     pub fn new() -> GameState {
         GameState {
-            player_pos: Pos { x: 0, y: 0 },
             world: World::new(&WALL_CHUNK),
             player_memory: World::new(&UNSEEN_CHUNK),
             debug_mode: false,
@@ -363,15 +410,13 @@ impl GameState {
     }
 
     pub fn move_player(&mut self, o: Offset) {
-        let new_pos = self.player_pos + o;
-        if self.world[new_pos].kind.is_walkable() || self.debug_mode {
-            self.player_pos += o;
-        }
+        self.world.move_player(o, self.debug_mode);
         self.update_memory();
     }
 
     fn update_memory(&mut self) {
-        let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, &self.world);
+        let player = self.world.get_player();
+        let seen = fov::calculate_fov(player.pos, FOV_RANGE, &self.world);
         for pos in seen {
             self.player_memory[pos] = self.world[pos];
         }
