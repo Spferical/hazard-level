@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::f64::consts::PI;
 use std::ops::Div;
 use std::ops::Sub;
@@ -363,9 +364,20 @@ impl World {
     }
 
     fn update_mobs(&mut self) {
-        for (pos, mob) in &self.mobs {
+        let poses = self.mobs.keys().copied().collect::<Vec<_>>();
+        for pos in poses {
+            let mob = self.mobs.remove(&pos).unwrap();
             match mob.kind {
-                MobKind::Zombie => {}
+                MobKind::Zombie => {
+                    if let Some(off) = self.path(pos, self.player_pos) {
+                        let new_pos = pos + off;
+                        if !self.mobs.contains_key(&new_pos) && self.player_pos != new_pos {
+                            self.mobs.insert(new_pos, mob);
+                        } else {
+                            self.mobs.insert(pos, mob);
+                        }
+                    }
+                }
             }
         }
     }
@@ -378,6 +390,41 @@ impl World {
 
     pub fn player_pos(&self) -> Pos {
         self.player_pos
+    }
+
+    pub fn path(&self, start: Pos, end: Pos) -> Option<Offset> {
+        if start == end {
+            return Some(Offset { x: 0, y: 0 });
+        }
+        let mut visited = HashSet::new();
+        let mut periphery = HashSet::new();
+        let mut new_periphery = HashSet::new();
+        visited.insert(start);
+        periphery.insert(vec![start]);
+        loop {
+            if periphery.is_empty() {
+                return None;
+            }
+            for path in periphery.drain() {
+                let pos = *path.last().unwrap();
+                visited.insert(pos);
+                for pos in CARDINALS
+                    .iter()
+                    .copied()
+                    .map(|c| pos + c)
+                    .filter(|pos| !visited.contains(pos))
+                {
+                    let mut new_path = path.clone();
+                    new_path.push(pos);
+                    if pos == end {
+                        return Some(new_path[1] - new_path[0]);
+                    }
+                    new_periphery.insert(new_path);
+                }
+            }
+            std::mem::swap(&mut periphery, &mut new_periphery);
+            new_periphery.clear();
+        }
     }
 }
 
@@ -410,8 +457,14 @@ impl GameState {
         self.update_memory();
     }
 
-    pub fn move_player(&mut self, o: Offset) {
-        self.world.move_player(o, self.debug_mode);
+    pub fn move_player(&mut self, o: Offset) -> bool {
+        let ret = self.world.move_player(o, self.debug_mode);
+        self.update_memory();
+        ret
+    }
+
+    pub fn tick(&mut self, dt: f32, player_moved: bool) {
+        self.world.tick(dt, player_moved);
         self.update_memory();
     }
 

@@ -99,20 +99,22 @@ struct Rect {
 }
 
 impl Ui {
-    fn move_player(&mut self, off: world::Offset) {
-        self.gs.move_player(off);
+    fn move_player(&mut self, off: world::Offset) -> bool {
+        self.gs.move_player(off)
     }
 
-    fn fire(&mut self, off: world::Offset) {
-        let end_pos = self.gs.world.fire(self.gs.world.player_pos(), off);
+    fn fire(&mut self, off: world::Offset) -> bool {
+        let player_pos = self.gs.world.player_pos();
+        let end_pos = self.gs.world.fire(player_pos, off);
         let eff = Effect::Line {
             color: RGB::named(LIGHT_WHITE),
-            p1: self.gs.world.player_pos(),
+            p1: player_pos,
             p2: end_pos,
             time_total: 0.2,
             time_left: 0.2,
         };
         self.effects.push(eff);
+        true
     }
 
     fn handle_effects(&mut self, ctx: &mut BTerm, map_rect: Rect, seen: &HashSet<Pos>) {
@@ -252,9 +254,10 @@ impl Ui {
 
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
+    let dt = ctx.frame_time_ms;
     // Player movement
-    match ctx.key {
-        None => {} // Nothing happened
+    let moved = match ctx.key {
+        None => false, // Nothing happened
         Some(key) => {
             if !ctx.shift {
                 match key {
@@ -262,7 +265,7 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     Right | L => ui.move_player(world::Offset { x: 1, y: 0 }),
                     Up | K => ui.move_player(world::Offset { x: 0, y: -1 }),
                     Down | J => ui.move_player(world::Offset { x: 0, y: 1 }),
-                    _ => {}
+                    _ => false,
                 }
             } else {
                 match key {
@@ -270,11 +273,12 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     Right | L => ui.fire(world::Offset { x: 1, y: 0 }),
                     Up | K => ui.fire(world::Offset { x: 0, y: -1 }),
                     Down | J => ui.fire(world::Offset { x: 0, y: 1 }),
-                    _ => {}
+                    _ => false,
                 }
             }
         }
-    }
+    };
+    ui.gs.tick(dt, moved);
 }
 
 fn main() {
