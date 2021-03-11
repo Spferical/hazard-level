@@ -306,7 +306,7 @@ impl World {
 
     pub fn move_player(&mut self, offset: Offset, force: bool) -> bool {
         let new_pos = self.player_pos + offset;
-        if self[new_pos].kind.is_walkable() || force {
+        if self[new_pos].kind.is_walkable() && self.mobs.get(&new_pos).is_none() || force {
             self.player_pos += offset;
             true
         } else {

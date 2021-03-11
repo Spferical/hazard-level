@@ -287,12 +287,12 @@ impl Ui {
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
     let dt = ctx.frame_time_ms;
-    if ui.gs.world.player_is_dead() {
+    if ctx.key.is_some() && ui.gs.world.player_is_dead() {
         ui.effects.push(Effect::Text {
             pos: Pos { x: 20, y: 20 },
             color: RGB::named(DARK_RED),
             text: "DEAD".to_string(),
-            time_left: 50000000000000000000f32,
+            time_left: 1f32,
         });
         return;
     }
@@ -306,6 +306,7 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     Right | L => ui.move_player(world::Offset { x: 1, y: 0 }),
                     Up | K => ui.move_player(world::Offset { x: 0, y: -1 }),
                     Down | J => ui.move_player(world::Offset { x: 0, y: 1 }),
+                    Space => true,
                     _ => false,
                 }
             } else {
