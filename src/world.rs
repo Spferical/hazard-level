@@ -258,11 +258,16 @@ pub struct Tile {
 pub struct Mob {
     pub kind: MobKind,
     pub damage: u32,
+    pub saw_player_at: Option<Pos>,
 }
 
 impl Mob {
     fn new(kind: MobKind) -> Self {
-        Self { kind, damage: 0 }
+        Self {
+            kind,
+            damage: 0,
+            saw_player_at: None,
+        }
     }
 }
 
@@ -560,25 +565,36 @@ impl World {
     }
 
     fn update_mobs(&mut self) {
+        let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, &self);
         let poses = self.mobs.keys().copied().collect::<Vec<_>>();
         for pos in poses {
-            let mob = self.mobs.remove(&pos).unwrap();
-            match mob.kind {
+            let mut mob = self.mobs.remove(&pos).unwrap();
+            let new_pos = match mob.kind {
                 MobKind::Zombie => {
-                    if let Some(off) = self.path(pos, self.player_pos) {
-                        let new_pos = pos + off;
-                        if self.player_pos == new_pos {
-                            self.player_damage += 1;
-                            self.mobs.insert(pos, mob);
-                        } else if !self.mobs.contains_key(&new_pos) {
-                            self.mobs.insert(new_pos, mob);
+                    if seen.contains(&pos) {
+                        mob.saw_player_at = Some(self.player_pos);
+                    }
+                    if let Some(target) = mob.saw_player_at {
+                        if let Some(off) = self.path(pos, target) {
+                            let new_pos = pos + off;
+                            if self.player_pos == new_pos {
+                                self.player_damage += 1;
+                                Some(pos)
+                            } else if !self.mobs.contains_key(&new_pos) {
+                                Some(new_pos)
+                            } else {
+                                Some(pos)
+                            }
                         } else {
-                            self.mobs.insert(pos, mob);
+                            Some(pos)
                         }
                     } else {
-                        self.mobs.insert(pos, mob);
+                        Some(pos)
                     }
                 }
+            };
+            if let Some(pos) = new_pos {
+                self.mobs.insert(pos, mob);
             }
         }
     }
@@ -606,7 +622,6 @@ impl World {
             if periphery.is_empty() {
                 return None;
             }
-            println!("{:?}, {:?}", periphery.len(), periphery[0].len());
             for path in periphery.drain(..) {
                 let pos = *path.last().unwrap();
                 let adjacent = CARDINALS
@@ -614,7 +629,8 @@ impl World {
                     .copied()
                     .map(|c| pos + c)
                     .filter(|pos| !visited.contains(pos))
-                    .filter(|pos| self[*pos].kind.is_walkable()).collect::<Vec<_>>();
+                    .filter(|pos| self[*pos].kind.is_walkable())
+                    .collect::<Vec<_>>();
                 for pos in adjacent {
                     visited.insert(pos);
                     let mut new_path = path.clone();
@@ -672,7 +688,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
         }
     }
     // spawn some enemies
-    for _ in 0..10 {
+    for _ in 0..100 {
         let room = rooms.choose(&mut rng).unwrap();
         let x = rng.gen_range(room.x1..=room.x2);
         let y = rng.gen_range(room.y1..=room.y2);
