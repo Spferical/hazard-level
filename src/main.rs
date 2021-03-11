@@ -15,8 +15,11 @@ const DARK_BLACK: NamedColor = (0x1c, 0x1c, 0x1c);
 const DARK_WHITE: NamedColor = (0x9c, 0x99, 0x8e);
 const LIGHT_BLACK: NamedColor = (0x54, 0x50, 0x54);
 const LIGHT_WHITE: NamedColor = (0xf8, 0xfc, 0xf8);
-const DARK_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
+const DARK_YELLOW: NamedColor = (0xff, 0xad, 0x33);
 const DARK_RED: NamedColor = (0xff, 0x33, 0x33);
+const DARK_BLUE: NamedColor = (0x33, 0x63, 0xa1);
+const LIGHT_BLUE: NamedColor = (0x77, 0xa7, 0xe5);
+const LIGHT_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
 
 impl From<world::Pos> for Point {
     fn from(pos: world::Pos) -> Self {
@@ -73,7 +76,14 @@ fn get_printable(tile_kind: TileKind, visible: bool) -> TilePrintable {
         (TileKind::Wall, false) => ("#", LIGHT_BLACK, DARK_WHITE),
         (TileKind::Floor, true) => (".", LIGHT_WHITE, LIGHT_BLACK),
         (TileKind::Floor, false) => (".", DARK_WHITE, DARK_BLACK),
+        (TileKind::Ocean, false) => ("~", DARK_BLUE, DARK_BLACK),
+        (TileKind::Ocean, true) => ("~", LIGHT_BLUE, DARK_BLACK),
+        (TileKind::BlackFloor, false) => (".", LIGHT_BLACK, DARK_BLACK),
+        (TileKind::BlackFloor, true) => (".", DARK_BLACK, LIGHT_BLACK),
+        (TileKind::YellowFloor, true) => (".", LIGHT_YELLOW, LIGHT_BLACK),
+        (TileKind::YellowFloor, false) => (".", LIGHT_YELLOW, DARK_BLACK),
         (TileKind::Unseen, _) => (" ", DARK_BLACK, DARK_BLACK),
+        (_, _) => ("?", LIGHT_BLUE, DARK_BLACK),
     };
     TilePrintable {
         symbol,

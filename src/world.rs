@@ -174,6 +174,9 @@ impl ChunkIndex {
 pub enum TileKind {
     Floor,
     Wall,
+    Ocean,
+    BlackFloor,
+    YellowFloor,
     // represents unseen tile in player memory World -- should never actually exist
     Unseen,
 }
@@ -209,6 +212,18 @@ lazy_static! {
         TileKind::Unseen => TileKindInfo {
             opaque: true,
             walkable: false,
+        },
+        TileKind::Ocean=> TileKindInfo {
+            opaque: false,
+            walkable: false,
+        },
+        TileKind::BlackFloor=> TileKindInfo {
+            opaque: false,
+            walkable: true,
+        },
+        TileKind::YellowFloor=> TileKindInfo {
+            opaque: false,
+            walkable: true,
         },
     };
 }
@@ -382,6 +397,15 @@ impl World {
         }
     }
 
+    pub fn carve_rect(&mut self, startx: i32, endx: i32, starty: i32, endy: i32, kind: TileKind) {
+        for x in startx..=endx {
+            for y in starty..=endy {
+                let pos = Pos { x, y };
+                self[pos].kind = kind;
+            }
+        }
+    }
+
     pub fn carve_line_drunk(
         &mut self,
         start: Pos,
@@ -476,7 +500,21 @@ pub fn generate_world(world: &mut World, seed: u64) {
     let end = Pos { x: 900, y: 0 };
     let brush_size = 2;
     world[start].kind = TileKind::Floor;
-    world.carve_line_drunk(start, end, brush_size, &mut rng, 0.90);
+    // left ocean
+    world.carve_rect(
+        -20, 40,
+        -30, 30,
+        TileKind::Ocean,
+    );
+    world.carve_rect(
+        -10, 10, -10, 10,
+        TileKind::BlackFloor,
+    );
+    // h for helicopter
+    // world.carve_rect
+    world.carve_rect(-3, -3, -3, 3, TileKind::YellowFloor);
+    world.carve_rect(3, 3, -3, 3, TileKind::YellowFloor);
+    world.carve_rect(-3, 3, 0, 0, TileKind::YellowFloor);
 }
 
 pub struct GameState {
