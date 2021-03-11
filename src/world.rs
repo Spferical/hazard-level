@@ -32,6 +32,12 @@ macro_rules! modulo {
     };
 }
 
+macro_rules! avg {
+    ($n: expr, $d: expr) => {
+        ($n + $d) / 2
+    };
+}
+
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct Pos {
     pub x: i32,
@@ -306,6 +312,15 @@ impl IndexMut<Pos> for World {
     }
 }
 
+pub struct CarveRoomOpts {
+    wall: TileKind,
+    floor: TileKind,
+    max_width: i32,
+    max_height: i32,
+    min_width: i32,
+    min_height: i32,
+}
+
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
         let mut mobs = HashMap::new();
@@ -333,13 +348,13 @@ impl World {
         self.chunks.len()
     }
 
-    pub fn carve_floor(&mut self, pos: Pos, brush_size: u8) {
+    pub fn carve_floor(&mut self, pos: Pos, brush_size: u8, tile: TileKind) {
         let brush_size = brush_size as i32;
         let brush_floor = -brush_size / 2;
         let brush_ceil = brush_floor + brush_size;
         for dx in brush_floor..=brush_ceil {
             for dy in brush_floor..=brush_ceil {
-                self[pos + Offset { x: dx, y: dy }].kind = TileKind::Floor;
+                self[pos + Offset { x: dx, y: dy }].kind = tile;
             }
         }
     }
@@ -378,9 +393,9 @@ impl World {
         }
     }
 
-    pub fn carve_line(&mut self, start: Pos, end: Pos, brush_size: u8) {
+    pub fn carve_line(&mut self, start: Pos, end: Pos, brush_size: u8, tile: TileKind) {
         // based on https://www.redblobgames.com/grids/line-drawing.html (2.1)
-        self.carve_floor(start, brush_size);
+        self.carve_floor(start, brush_size, tile);
         let mut pos = start;
         let offset = end - start;
         let (nx, ny) = (offset.x.abs(), offset.y.abs());
@@ -393,7 +408,7 @@ impl World {
                 pos.y += offset.y.signum();
                 iy += 1;
             }
-            self.carve_floor(pos, brush_size);
+            self.carve_floor(pos, brush_size, tile);
         }
     }
 
@@ -406,6 +421,101 @@ impl World {
         }
     }
 
+    pub fn carve_box(&mut self, startx: i32, endx: i32, starty: i32, endy: i32, kind: TileKind) {
+        for x in startx..=endx {
+            for &y in &[starty, endy] {
+                let pos = Pos { x, y };
+                self[pos].kind = kind;
+            }
+        }
+        for y in starty..=endy {
+            for &x in &[startx, endx] {
+                let pos = Pos { x, y };
+                self[pos].kind = kind;
+            }
+        }
+    }
+    pub fn carve_rooms_bsp_extra_loops(
+        &mut self,
+        startx: i32,
+        endx: i32,
+        starty: i32,
+        endy: i32,
+        opts: &CarveRoomOpts,
+        rng: &mut impl Rng,
+        loopiness: u32,
+    ) {
+        self.carve_rooms_bsp(startx, endx, starty, endy, opts, rng);
+        for _ in 0..loopiness {
+            let x = rng.gen_range(startx..=endx);
+            let y = rng.gen_range(starty..=endy);
+            let pos = Pos { x, y };
+            self[pos].kind = opts.floor;
+        }
+    }
+
+    pub fn carve_rooms_bsp(
+        &mut self,
+        startx: i32,
+        endx: i32,
+        starty: i32,
+        endy: i32,
+        opts: &CarveRoomOpts,
+        rng: &mut impl Rng,
+    ) {
+        assert!(opts.min_width * 2 + 1 < opts.max_width);
+        assert!(opts.min_height * 2 + 1 < opts.max_height);
+        #[derive(Clone, Copy, Debug)]
+        enum Split {
+            X,
+            Y,
+            None,
+        };
+        let too_wide = (endx - startx) > opts.max_width;
+        let too_tall = (endy - starty) > opts.max_height;
+        let split = match (too_wide, too_tall) {
+            (true, true) => *[Split::X, Split::Y].choose(rng).unwrap(),
+            (true, false) => Split::X,
+            (false, true) => Split::Y,
+            _ => Split::None,
+        };
+        match split {
+            Split::X => {
+                let split_x =
+                    rng.gen_range(startx + opts.min_width + 1..(endx - opts.min_width - 1));
+                self.carve_rooms_bsp(startx, split_x - 1, starty, endy, opts, rng);
+                self.carve_rooms_bsp(split_x + 1, endx, starty, endy, opts, rng);
+                let mid_left = Pos {
+                    x: avg!(startx, split_x - 1),
+                    y: avg!(starty, endy),
+                };
+                let mid_right = Pos {
+                    x: avg!(split_x + 1, endx),
+                    y: avg!(starty, endy),
+                };
+                self.carve_line(mid_left, mid_right, 0, opts.floor);
+            }
+            Split::Y => {
+                let split_y = rng.gen_range(starty + opts.min_height + 1..(endy - opts.min_height));
+                self.carve_rooms_bsp(startx, endx, starty, split_y - 1, opts, rng);
+                self.carve_rooms_bsp(startx, endx, split_y + 1, endy, opts, rng);
+                let mid_top = Pos {
+                    x: avg!(startx, endx),
+                    y: avg!(starty, split_y - 1),
+                };
+                let mid_bot = Pos {
+                    x: avg!(startx, endx),
+                    y: avg!(split_y + 1, endy),
+                };
+                self.carve_line(mid_top, mid_bot, 0, opts.floor);
+            }
+            Split::None => {
+                // just carve the room
+                self.carve_rect(startx, endx, starty, endy, opts.floor);
+            }
+        }
+    }
+
     pub fn carve_line_drunk(
         &mut self,
         start: Pos,
@@ -413,6 +523,7 @@ impl World {
         brush_size: u8,
         rng: &mut impl Rng,
         waviness: f64,
+        tile: TileKind,
     ) {
         let mut pos = start;
         while pos != end {
@@ -422,7 +533,7 @@ impl World {
                 (end - pos).closest_dir()
             };
             pos += dir;
-            self.carve_floor(pos, brush_size);
+            self.carve_floor(pos, brush_size, tile);
         }
     }
 
@@ -501,20 +612,26 @@ pub fn generate_world(world: &mut World, seed: u64) {
     let brush_size = 2;
     world[start].kind = TileKind::Floor;
     // left ocean
-    world.carve_rect(
-        -20, 40,
-        -30, 30,
-        TileKind::Ocean,
-    );
-    world.carve_rect(
-        -10, 10, -10, 10,
-        TileKind::BlackFloor,
-    );
+    world.carve_rect(-20, 40, -30, 30, TileKind::Ocean);
+    world.carve_rect(-10, 10, -10, 10, TileKind::BlackFloor);
     // h for helicopter
-    // world.carve_rect
     world.carve_rect(-3, -3, -3, 3, TileKind::YellowFloor);
     world.carve_rect(3, 3, -3, 3, TileKind::YellowFloor);
     world.carve_rect(-3, 3, 0, 0, TileKind::YellowFloor);
+    // facility
+    // world.carve_rect(8, 100, -30, 30, TileKind::Floor);
+    world.carve_rect(8, 100, -30, 30, TileKind::Wall);
+    let bsp_opts = CarveRoomOpts {
+        wall: TileKind::Wall,
+        floor: TileKind::Floor,
+        max_width: 10,
+        max_height: 10,
+        min_width: 2,
+        min_height: 2,
+    };
+    world.carve_rooms_bsp_extra_loops(9, 99, -29, 29, &bsp_opts, &mut rng, 300);
+
+    world[Pos { x: 8, y: 0 }].kind = TileKind::Floor;
 }
 
 pub struct GameState {

@@ -317,6 +317,10 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     Up | K => ui.move_player(world::Offset { x: 0, y: -1 }),
                     Down | J => ui.move_player(world::Offset { x: 0, y: 1 }),
                     Space => true,
+                    Tab => {
+                        ui.gs.debug_mode = !ui.gs.debug_mode;
+                        false
+                    }
                     _ => false,
                 }
             } else {
