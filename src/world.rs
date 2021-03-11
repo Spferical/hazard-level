@@ -571,17 +571,22 @@ impl World {
             let mut mob = self.mobs.remove(&pos).unwrap();
             let new_pos = match mob.kind {
                 MobKind::Zombie => {
+                    let never_saw_player_before = mob.saw_player_at.is_none();
                     if seen.contains(&pos) {
                         mob.saw_player_at = Some(self.player_pos);
                     }
-                    if let Some(target) = mob.saw_player_at {
-                        if let Some(off) = self.path(pos, target) {
-                            let new_pos = pos + off;
-                            if self.player_pos == new_pos {
-                                self.player_damage += 1;
-                                Some(pos)
-                            } else if !self.mobs.contains_key(&new_pos) {
-                                Some(new_pos)
+                    if !never_saw_player_before {
+                        if let Some(target) = mob.saw_player_at {
+                            if let Some(off) = self.path(pos, target) {
+                                let new_pos = pos + off;
+                                if self.player_pos == new_pos {
+                                    self.player_damage += 1;
+                                    Some(pos)
+                                } else if !self.mobs.contains_key(&new_pos) {
+                                    Some(new_pos)
+                                } else {
+                                    Some(pos)
+                                }
                             } else {
                                 Some(pos)
                             }
