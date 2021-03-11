@@ -182,6 +182,14 @@ pub enum MobKind {
     Zombie,
 }
 
+impl MobKind {
+    fn max_health(&self) -> u32 {
+        match self {
+            Self::Zombie => 2,
+        }
+    }
+}
+
 pub struct TileKindInfo {
     pub opaque: bool,
     pub walkable: bool,
@@ -222,6 +230,13 @@ pub struct Tile {
 #[derive(Hash, Debug, Clone, Copy)]
 pub struct Mob {
     pub kind: MobKind,
+    pub damage: u32,
+}
+
+impl Mob {
+    fn new(kind: MobKind) -> Self {
+        Self { kind, damage: 0 }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
@@ -277,12 +292,7 @@ impl IndexMut<Pos> for World {
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
         let mut mobs = HashMap::new();
-        mobs.insert(
-            Pos { x: 1, y: 1 },
-            Mob {
-                kind: MobKind::Zombie,
-            },
-        );
+        mobs.insert(Pos { x: 1, y: 1 }, Mob::new(MobKind::Zombie));
         World {
             chunks: IndexMap::new(),
             default_chunk,
@@ -316,12 +326,26 @@ impl World {
         }
     }
 
-    pub fn fire(&self, start: Pos, off: Offset) -> Pos {
-        let mut pos = start;
-        while TILE_INFOS[self[pos].kind].walkable {
-            pos += off
+    fn damage_mob(&mut self, pos: Pos) {
+        let mob = self.mobs.get_mut(&pos).unwrap();
+        mob.damage += 1;
+        if mob.damage >= mob.kind.max_health() {
+            drop(mob);
+            self.mobs.remove(&pos);
         }
-        pos
+    }
+
+    pub fn fire(&mut self, start: Pos, off: Offset) -> Pos {
+        let mut pos = start;
+        loop {
+            pos += off;
+            if !TILE_INFOS[self[pos].kind].walkable {
+                break pos;
+            } else if self.mobs.get_mut(&pos).is_some() {
+                self.damage_mob(pos);
+                break pos;
+            }
+        }
     }
 
     pub fn carve_line(&mut self, start: Pos, end: Pos, brush_size: u8) {
