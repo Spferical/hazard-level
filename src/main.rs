@@ -17,6 +17,7 @@ const LIGHT_BLACK: NamedColor = (0x54, 0x50, 0x54);
 const LIGHT_WHITE: NamedColor = (0xf8, 0xfc, 0xf8);
 const DARK_YELLOW: NamedColor = (0xff, 0xad, 0x33);
 const DARK_RED: NamedColor = (0xff, 0x33, 0x33);
+const LIGHT_RED: NamedColor = (0xe5, 0x78, 0x6d);
 const DARK_BLUE: NamedColor = (0x33, 0x63, 0xa1);
 const LIGHT_BLUE: NamedColor = (0x77, 0xa7, 0xe5);
 const LIGHT_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
@@ -82,6 +83,8 @@ fn get_printable(tile_kind: TileKind, visible: bool) -> TilePrintable {
         (TileKind::BlackFloor, true) => (".", DARK_BLACK, LIGHT_BLACK),
         (TileKind::YellowFloor, true) => (".", LIGHT_YELLOW, LIGHT_BLACK),
         (TileKind::YellowFloor, false) => (".", LIGHT_YELLOW, DARK_BLACK),
+        (TileKind::BloodyFloor, false) => (".", DARK_RED, DARK_BLACK),
+        (TileKind::BloodyFloor, true) => (".", DARK_RED, LIGHT_BLACK),
         (TileKind::Unseen, _) => (" ", DARK_BLACK, DARK_BLACK),
         (_, _) => ("?", LIGHT_BLUE, DARK_BLACK),
     };

@@ -183,6 +183,7 @@ pub enum TileKind {
     Ocean,
     BlackFloor,
     YellowFloor,
+    BloodyFloor,
     // represents unseen tile in player memory World -- should never actually exist
     Unseen,
 }
@@ -228,6 +229,10 @@ lazy_static! {
             walkable: true,
         },
         TileKind::YellowFloor=> TileKindInfo {
+            opaque: false,
+            walkable: true,
+        },
+        TileKind::BloodyFloor=> TileKindInfo {
             opaque: false,
             walkable: true,
         },
@@ -319,6 +324,14 @@ pub struct CarveRoomOpts {
     max_height: i32,
     min_width: i32,
     min_height: i32,
+}
+
+#[derive(Clone, Copy)]
+pub struct Rect {
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
 }
 
 impl World {
@@ -444,14 +457,15 @@ impl World {
         opts: &CarveRoomOpts,
         rng: &mut impl Rng,
         loopiness: u32,
-    ) {
-        self.carve_rooms_bsp(startx, endx, starty, endy, opts, rng);
+    ) -> Vec<Rect> {
+        let rooms = self.carve_rooms_bsp(startx, endx, starty, endy, opts, rng);
         for _ in 0..loopiness {
             let x = rng.gen_range(startx..=endx);
             let y = rng.gen_range(starty..=endy);
             let pos = Pos { x, y };
             self[pos].kind = opts.floor;
         }
+        rooms
     }
 
     pub fn carve_rooms_bsp(
@@ -462,7 +476,7 @@ impl World {
         endy: i32,
         opts: &CarveRoomOpts,
         rng: &mut impl Rng,
-    ) {
+    ) -> Vec<Rect> {
         assert!(opts.min_width * 2 + 1 < opts.max_width);
         assert!(opts.min_height * 2 + 1 < opts.max_height);
         #[derive(Clone, Copy, Debug)]
@@ -483,8 +497,8 @@ impl World {
             Split::X => {
                 let split_x =
                     rng.gen_range(startx + opts.min_width + 1..(endx - opts.min_width - 1));
-                self.carve_rooms_bsp(startx, split_x - 1, starty, endy, opts, rng);
-                self.carve_rooms_bsp(split_x + 1, endx, starty, endy, opts, rng);
+                let mut rooms = self.carve_rooms_bsp(startx, split_x - 1, starty, endy, opts, rng);
+                rooms.extend(self.carve_rooms_bsp(split_x + 1, endx, starty, endy, opts, rng));
                 let mid_left = Pos {
                     x: avg!(startx, split_x - 1),
                     y: avg!(starty, endy),
@@ -494,11 +508,12 @@ impl World {
                     y: avg!(starty, endy),
                 };
                 self.carve_line(mid_left, mid_right, 0, opts.floor);
+                rooms
             }
             Split::Y => {
                 let split_y = rng.gen_range(starty + opts.min_height + 1..(endy - opts.min_height));
-                self.carve_rooms_bsp(startx, endx, starty, split_y - 1, opts, rng);
-                self.carve_rooms_bsp(startx, endx, split_y + 1, endy, opts, rng);
+                let mut rooms = self.carve_rooms_bsp(startx, endx, starty, split_y - 1, opts, rng);
+                rooms.extend(self.carve_rooms_bsp(startx, endx, split_y + 1, endy, opts, rng));
                 let mid_top = Pos {
                     x: avg!(startx, endx),
                     y: avg!(starty, split_y - 1),
@@ -508,10 +523,17 @@ impl World {
                     y: avg!(split_y + 1, endy),
                 };
                 self.carve_line(mid_top, mid_bot, 0, opts.floor);
+                rooms
             }
             Split::None => {
                 // just carve the room
                 self.carve_rect(startx, endx, starty, endy, opts.floor);
+                vec![Rect {
+                    x1: startx,
+                    x2: endx,
+                    y1: starty,
+                    y2: endy,
+                }]
             }
         }
     }
@@ -553,6 +575,8 @@ impl World {
                         } else {
                             self.mobs.insert(pos, mob);
                         }
+                    } else {
+                        self.mobs.insert(pos, mob);
                     }
                 }
             }
@@ -574,29 +598,31 @@ impl World {
             return Some(Offset { x: 0, y: 0 });
         }
         let mut visited = HashSet::new();
-        let mut periphery = HashSet::new();
-        let mut new_periphery = HashSet::new();
+        let mut periphery = Vec::new();
+        let mut new_periphery = Vec::new();
         visited.insert(start);
-        periphery.insert(vec![start]);
+        periphery.push(vec![start]);
         loop {
             if periphery.is_empty() {
                 return None;
             }
-            for path in periphery.drain() {
+            println!("{:?}, {:?}", periphery.len(), periphery[0].len());
+            for path in periphery.drain(..) {
                 let pos = *path.last().unwrap();
-                visited.insert(pos);
-                for pos in CARDINALS
+                let adjacent = CARDINALS
                     .iter()
                     .copied()
                     .map(|c| pos + c)
                     .filter(|pos| !visited.contains(pos))
-                {
+                    .filter(|pos| self[*pos].kind.is_walkable()).collect::<Vec<_>>();
+                for pos in adjacent {
+                    visited.insert(pos);
                     let mut new_path = path.clone();
                     new_path.push(pos);
                     if pos == end {
                         return Some(new_path[1] - new_path[0]);
                     }
-                    new_periphery.insert(new_path);
+                    new_periphery.push(new_path);
                 }
             }
             std::mem::swap(&mut periphery, &mut new_periphery);
@@ -629,7 +655,30 @@ pub fn generate_world(world: &mut World, seed: u64) {
         min_width: 2,
         min_height: 2,
     };
-    world.carve_rooms_bsp_extra_loops(9, 99, -29, 29, &bsp_opts, &mut rng, 300);
+    let rooms = world.carve_rooms_bsp_extra_loops(9, 99, -29, 29, &bsp_opts, &mut rng, 300);
+    for room in &rooms {
+        // furnish the rooms a little
+        if rng.gen_range(0..100) < 30 {
+            for _ in 0..10 {
+                // add some spashes of blood
+                let x1 = rng.gen_range(room.x1..=room.x2);
+                let x2 = rng.gen_range(room.x1..=room.x2);
+                let y1 = rng.gen_range(room.y1..=room.y2);
+                let y2 = rng.gen_range(room.y1..=room.y2);
+                if x1 < x2 && y1 < y2 {
+                    world.carve_rect(x1, x2, y1, y2, TileKind::BloodyFloor);
+                }
+            }
+        }
+    }
+    // spawn some enemies
+    for _ in 0..10 {
+        let room = rooms.choose(&mut rng).unwrap();
+        let x = rng.gen_range(room.x1..=room.x2);
+        let y = rng.gen_range(room.y1..=room.y2);
+        let pos = Pos { x, y };
+        world.mobs.insert(pos, Mob::new(MobKind::Zombie));
+    }
 
     world[Pos { x: 8, y: 0 }].kind = TileKind::Floor;
 }
