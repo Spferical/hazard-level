@@ -14,6 +14,7 @@ use crate::fov;
 
 pub const CHUNKSIZE: usize = 16;
 pub const FOV_RANGE: i32 = 8;
+pub const PLAYER_MAX_HEALTH: u32 = 4;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -262,6 +263,7 @@ pub struct World {
     default_chunk: &'static Chunk,
     pub mobs: HashMap<Pos, Mob>,
     player_pos: Pos,
+    player_damage: u32,
 }
 
 impl Index<Pos> for World {
@@ -298,6 +300,7 @@ impl World {
             default_chunk,
             mobs,
             player_pos: Pos { x: 0, y: 0 },
+            player_damage: 0,
         }
     }
 
@@ -333,6 +336,18 @@ impl World {
             drop(mob);
             self.mobs.remove(&pos);
         }
+    }
+
+    fn damage_player(&mut self) {
+        self.player_damage += 1;
+    }
+
+    pub fn player_is_dead(&self) -> bool {
+        self.player_damage >= PLAYER_MAX_HEALTH
+    }
+
+    pub fn player_damage(&self) -> u32 {
+        self.player_damage
     }
 
     pub fn fire(&mut self, start: Pos, off: Offset) -> Pos {
@@ -395,7 +410,10 @@ impl World {
                 MobKind::Zombie => {
                     if let Some(off) = self.path(pos, self.player_pos) {
                         let new_pos = pos + off;
-                        if !self.mobs.contains_key(&new_pos) && self.player_pos != new_pos {
+                        if self.player_pos == new_pos {
+                            self.player_damage += 1;
+                            self.mobs.insert(pos, mob);
+                        } else if !self.mobs.contains_key(&new_pos) {
                             self.mobs.insert(new_pos, mob);
                         } else {
                             self.mobs.insert(pos, mob);

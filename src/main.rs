@@ -1,11 +1,11 @@
 use crate::world::MobKind;
+use crate::world::PLAYER_MAX_HEALTH;
+use crate::world::{Offset, Pos, TileKind};
 use bracket_lib::prelude::*;
 use std::collections::HashSet;
 
 mod fov;
 mod world;
-
-use crate::world::{Offset, Pos, TileKind};
 
 const FOV_RANGE: i32 = 8;
 
@@ -16,6 +16,7 @@ const DARK_WHITE: NamedColor = (0x9c, 0x99, 0x8e);
 const LIGHT_BLACK: NamedColor = (0x54, 0x50, 0x54);
 const LIGHT_WHITE: NamedColor = (0xf8, 0xfc, 0xf8);
 const DARK_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
+const DARK_RED: NamedColor = (0xff, 0x33, 0x33);
 
 impl From<world::Pos> for Point {
     fn from(pos: world::Pos) -> Self {
@@ -37,6 +38,12 @@ enum Effect {
         p2: Pos,
         color: RGB,
         time_total: f32,
+        time_left: f32,
+    },
+    Text {
+        pos: Pos,
+        text: String,
+        color: RGB,
         time_left: f32,
     },
 }
@@ -151,6 +158,25 @@ impl Ui {
                         None
                     }
                 }
+                Effect::Text {
+                    pos,
+                    text,
+                    color,
+                    mut time_left,
+                } => {
+                    ctx.print_color(pos.x, pos.y, color, RGBA::from_u8(0, 0, 0, 0), &text);
+                    time_left -= ctx.frame_time_ms / 1000f32;
+                    if time_left > 0f32 {
+                        Some(Effect::Text {
+                            pos,
+                            text,
+                            color,
+                            time_left,
+                        })
+                    } else {
+                        None
+                    }
+                }
             })
             .collect();
     }
@@ -216,11 +242,17 @@ impl Ui {
             }
         }
         let player_pos = self.gs.world.player_pos();
+        let bg = get_printable(gs.world[player_pos].kind, true).bg;
+        let bg = bg.lerp(
+            RGB::named(DARK_RED),
+            gs.world.player_damage() as f32 / PLAYER_MAX_HEALTH as f32,
+        );
+
         ctx.print_color(
             screen_rect.x + screen_rect.w / 2,
             screen_rect.y + screen_rect.h / 2,
             RGB::named(LIGHT_WHITE),
-            get_printable(gs.world[player_pos].kind, true).bg,
+            bg,
             "@",
         );
     }
@@ -255,6 +287,15 @@ impl Ui {
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
     let dt = ctx.frame_time_ms;
+    if ui.gs.world.player_is_dead() {
+        ui.effects.push(Effect::Text {
+            pos: Pos { x: 20, y: 20 },
+            color: RGB::named(DARK_RED),
+            text: "DEAD".to_string(),
+            time_left: 50000000000000000000f32,
+        });
+        return;
+    }
     // Player movement
     let moved = match ctx.key {
         None => false, // Nothing happened
