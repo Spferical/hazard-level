@@ -755,7 +755,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
         let pos = Pos { x, y };
         world.mobs.insert(pos, Mob::new(MobKind::Zombie));
     }
-    world[Pos { x: 8, y: 0 }].kind = TileKind::Floor;
+    world.carve_floor(Pos { x: 8, y: 0}, 1, TileKind::Floor);
 
     let rightmost_room = **rooms
         .iter()

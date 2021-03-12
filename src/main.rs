@@ -306,18 +306,30 @@ impl Ui {
             "move:←↓↑→ shoot:shift+move wait:space",
         );
     }
+
+    fn random_text_effect(self: &mut Self, ctx: &mut BTerm, text: String, time: f32, color: RGB) {
+        let (w, h) = ctx.get_char_size();
+        let rect = world::Rect {
+            x1: 0,
+            y1: 0,
+            x2: w as i32 - text.len() as i32 - 1,
+            y2: h as i32 - 1,
+        };
+        let pos = rect.choose(&mut self.rng);
+        self.effects.push(Effect::Text {
+            color,
+            pos,
+            text,
+            time_left: time,
+        });
+    }
 }
 
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
     let dt = ctx.frame_time_ms;
     if ctx.key.is_some() && ui.gs.player_is_dead() {
-        ui.effects.push(Effect::Text {
-            pos: Pos { x: 20, y: 20 },
-            color: RGB::named(DARK_RED),
-            text: "DEAD".to_string(),
-            time_left: 1f32,
-        });
+        ui.random_text_effect(ctx, "DEAD".to_string(), 1f32, RGB::named(DARK_RED));
         return;
     }
     // Player movement
@@ -351,19 +363,12 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     if moved {
         if let MissionState::CodeEntered { seconds_left } = ui.gs.state {
             if seconds_left % 10 == 0 {
-                let rect = world::Rect {
-                    x1: 0,
-                    y1: 0,
-                    x2: 60,
-                    y2: 50,
-                };
-                let pos = rect.choose(&mut ui.rng);
-                ui.effects.push(Effect::Text {
-                    color: RGB::named(DARK_RED),
-                    pos,
-                    text: format!("self destruct in T minus {} seconds", seconds_left),
-                    time_left: 1.0,
-                });
+                ui.random_text_effect(
+                    ctx,
+                    format!("self destruct in T minus {} seconds", seconds_left),
+                    1.0,
+                    RGB::named(DARK_RED),
+                );
             }
         }
     }
@@ -381,7 +386,7 @@ fn main() {
     let ui = Ui {
         gs,
         effects: vec![],
-        rng: SmallRng::from_seed([7; 32]),
+        rng: SmallRng::seed_from_u64(72),
     };
     main_loop(context, ui).unwrap();
 }
