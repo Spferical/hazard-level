@@ -237,7 +237,14 @@ impl Ui {
                 } else {
                     &gs.player_memory
                 };
-                let printable = get_printable(world[map_pos].kind, seen.contains(&map_pos));
+                let mut printable = get_printable(world[map_pos].kind, seen.contains(&map_pos));
+                if world[map_pos].blood {
+                    printable.fg = RGB::named(DARK_RED);
+                }
+                if world[map_pos].corpse {
+                    printable.fg = RGB::named(DARK_RED);
+                    printable.symbol = "%";
+                }
                 let screen_pos = self.map_rect_to_screen(rect_pos, screen_rect);
 
                 ctx.print_color(
