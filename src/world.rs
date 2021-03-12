@@ -788,6 +788,18 @@ fn gen_offices(
         let pos = Pos { x, y };
         world.mobs.insert(pos, Mob::new(MobKind::Zombie));
     }
+
+    // spawn some ammo
+    for _ in 0..20 {
+        loop {
+            let room = rooms.choose(rng).unwrap();
+            let pos = room.choose(rng);
+            if world[pos].item.is_none() {
+                world[pos].item = Some(Item::Ammo);
+                break;
+            }
+        }
+    }
     world.carve_floor(Pos { x: 8, y: 0 }, 1, TileKind::Floor);
 
     let rightmost_room = **rooms
@@ -864,6 +876,25 @@ impl GameState {
         let ret = self.world.move_player(o, force);
         self.update_memory();
         ret
+    }
+
+    pub fn pick_up_item(&mut self) -> Option<Item> {
+        let pos = self.world.player_pos;
+        if let Some(item) = self.world[pos].item.take() {
+            match item {
+                Item::Ammo => {
+                    self.world.player_ammo += 8;
+                    Some(Item::Ammo)
+                }
+                other => {
+                    // put it back
+                    self.world[pos].item = Some(other);
+                    None
+                }
+            }
+        } else {
+            None
+        }
     }
 
     pub fn tick(&mut self, dt: f32, player_moved: bool) {

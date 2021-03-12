@@ -138,7 +138,22 @@ struct Rect {
 
 impl Ui {
     fn move_player(&mut self, off: world::Offset) -> bool {
-        self.gs.move_player(off)
+        let moved = self.gs.move_player(off);
+        if let Some(item) = self.gs.pick_up_item() {
+            match item {
+                Item::Corpse => panic!(),
+                Item::Ammo => {
+                    let eff = Effect::Text {
+                        color: RGB::named(LIGHT_BLUE),
+                        pos: Pos::new(35, 23),
+                        text: "more ammo!".to_string(),
+                        time_left: 1.0,
+                    };
+                    self.effects.push(eff);
+                }
+            }
+        }
+        moved
     }
 
     fn fire(&mut self, off: world::Offset) -> bool {
@@ -423,7 +438,7 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
 
 fn main() {
     let context = BTermBuilder::simple80x50()
-        .with_title("Roguelike Tutorial")
+        .with_title("Run")
         .with_fps_cap(30.0)
         .build()
         .unwrap();
