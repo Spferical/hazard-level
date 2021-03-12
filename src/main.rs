@@ -143,15 +143,24 @@ impl Ui {
 
     fn fire(&mut self, off: world::Offset) -> bool {
         let player_pos = self.gs.world.player_pos();
-        let end_pos = self.gs.world.fire(player_pos, off);
-        let eff = Effect::Line {
-            color: RGB::named(LIGHT_WHITE),
-            p1: player_pos,
-            p2: end_pos,
-            time_total: 0.2,
-            time_left: 0.2,
-        };
-        self.effects.push(eff);
+        if let Some(end_pos) = self.gs.world.fire(player_pos, off) {
+            let eff = Effect::Line {
+                color: RGB::named(LIGHT_WHITE),
+                p1: player_pos,
+                p2: end_pos,
+                time_total: 0.2,
+                time_left: 0.2,
+            };
+            self.effects.push(eff);
+        } else {
+            let eff = Effect::Text {
+                color: RGB::named(LIGHT_YELLOW),
+                pos: Pos::new(35, 23),
+                text: "click".to_string(),
+                time_left: 1.0,
+            };
+            self.effects.push(eff);
+        }
         true
     }
 
@@ -235,6 +244,10 @@ impl Ui {
         }
     }
 
+    fn map_to_screen(&self, pos: Pos, map_rect: Rect) -> Pos {
+        self.map_rect_to_screen(self.map_to_map_rect(pos, map_rect), map_rect)
+    }
+
     fn draw_map(&mut self, ctx: &mut BTerm, screen_rect: Rect, seen: &HashSet<Pos>) {
         let gs = &self.gs;
         for rect_x in 0..screen_rect.w {
@@ -291,6 +304,13 @@ impl Ui {
         );
     }
 
+    fn print_multi(&mut self, ctx: &mut BTerm, mut x: i32, y: i32, texts: &[(String, RGB)]) {
+        for (text, color) in texts {
+            ctx.print_color(x, y, *color, RGB::named(DARK_BLACK), text);
+            x += text.len() as i32;
+        }
+    }
+
     fn draw(&mut self, ctx: &mut BTerm) {
         let (w, h) = ctx.get_char_size();
         let map_rect = Rect {
@@ -303,17 +323,28 @@ impl Ui {
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
         self.handle_effects(ctx, map_rect, &seen);
-        let (mission_status, color) = match self.gs.state {
+
+        let mut statusbar = Vec::new();
+        statusbar.push(("ammo:".to_string(), RGB::named(LIGHT_WHITE)));
+        let color = match self.gs.world.player_ammo {
+            0 => RGB::named(DARK_RED),
+            1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => RGB::named(LIGHT_RED),
+            _ => RGB::named(LIGHT_GREEN),
+        };
+        statusbar.push((self.gs.world.player_ammo.to_string() + " ", color));
+        statusbar.push(match self.gs.state {
             MissionState::Start => (
-                "Find the computer and enter the code...",
+                "Find the computer and enter the code...".to_string(),
                 RGB::named(LIGHT_BLUE),
             ),
-            MissionState::CodeEntered { seconds_left: _ } => {
-                ("CODE ENTERED! Now get outta here!", RGB::named(LIGHT_RED))
-            }
-            MissionState::Win => ("YOU WIN!", RGB::named(DARK_GREEN)),
-        };
-        ctx.print_color_centered(h as i32 - 2, color, RGB::named(DARK_BLACK), mission_status);
+            MissionState::CodeEntered { seconds_left: _ } => (
+                "CODE ENTERED! Now get outta here!".to_string(),
+                RGB::named(LIGHT_RED),
+            ),
+            MissionState::Win => ("YOU WIN!".to_string(), RGB::named(DARK_GREEN)),
+        });
+        self.print_multi(ctx, 0, h as i32 - 2, &statusbar);
+
         ctx.print_color_centered(
             h as i32 - 1,
             RGB::named(LIGHT_WHITE),

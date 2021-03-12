@@ -46,7 +46,7 @@ pub struct Pos {
 }
 
 impl Pos {
-    fn new(x: i32, y: i32) -> Pos {
+    pub fn new(x: i32, y: i32) -> Pos {
         Pos { x, y }
     }
 }
@@ -326,6 +326,7 @@ pub struct World {
     pub mobs: HashMap<Pos, Mob>,
     player_pos: Pos,
     player_damage: u32,
+    pub player_ammo: u32,
 }
 
 impl Index<Pos> for World {
@@ -389,6 +390,7 @@ impl World {
             mobs: HashMap::new(),
             player_pos: Pos { x: 0, y: 0 },
             player_damage: 0,
+            player_ammo: 32,
         }
     }
 
@@ -438,9 +440,13 @@ impl World {
         self.player_damage
     }
 
-    pub fn fire(&mut self, start: Pos, off: Offset) -> Pos {
+    pub fn fire(&mut self, start: Pos, off: Offset) -> Option<Pos> {
+        if self.player_ammo == 0 {
+            return None;
+        }
+        self.player_ammo -= 1;
         let mut pos = start;
-        loop {
+        Some(loop {
             pos += off;
             if !TILE_INFOS[self[pos].kind].walkable && self[pos].kind != TileKind::Ocean {
                 break pos;
@@ -448,7 +454,7 @@ impl World {
                 self.damage_mob(pos);
                 break pos;
             }
-        }
+        })
     }
 
     pub fn carve_line(&mut self, start: Pos, end: Pos, brush_size: u8, tile: TileKind) {
@@ -801,10 +807,6 @@ fn gen_offices(
 
 pub fn generate_world(world: &mut World, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
-    let start = Pos { x: 0, y: 0 };
-    let end = Pos { x: 900, y: 0 };
-    let brush_size = 2;
-    world[start].kind = TileKind::Floor;
     // left ocean
     world.fill_rect(Rect::new(-50, 40, -50, 50), TileKind::Ocean);
     world.fill_rect(Rect::new(-10, 10, -10, 10), TileKind::BlackFloor);
@@ -815,12 +817,11 @@ pub fn generate_world(world: &mut World, seed: u64) {
 
     let (edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
 
+    // goal
     world.fill_rect(
         Rect::new(edge.x + 1, edge.x + 4, edge.y - 2, edge.y + 2),
         TileKind::BloodyFloor,
     );
-
-    // goal
     world.carve_floor(edge + Offset { x: 2, y: 0 }, 0, TileKind::Computer);
 }
 
