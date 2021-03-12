@@ -789,5 +789,8 @@ impl GameState {
                 self.player_memory.mobs.insert(pos, *mob);
             }
         }
+        if self.debug_mode {
+            self.player_memory.mobs.extend(&self.world.mobs);
+        }
     }
 }
