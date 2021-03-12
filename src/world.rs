@@ -339,6 +339,14 @@ pub struct Rect {
     y2: i32,
 }
 
+impl Rect {
+    fn choose(&self, rng: &mut impl Rng) -> Pos {
+        let x = rng.gen_range(self.x1..=self.x2);
+        let y = rng.gen_range(self.y1..=self.y2);
+        Pos { x, y }
+    }
+}
+
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
         let mut mobs = HashMap::new();
@@ -465,12 +473,50 @@ impl World {
     ) -> Vec<Rect> {
         let rooms = self.carve_rooms_bsp(startx, endx, starty, endy, opts, rng);
         for _ in 0..loopiness {
-            let x = rng.gen_range(startx..=endx);
-            let y = rng.gen_range(starty..=endy);
-            let pos = Pos { x, y };
-            self[pos].kind = opts.floor;
+            loop {
+                let room1 = rooms.choose(rng).unwrap();
+                let room2 = rooms.choose(rng).unwrap();
+                if let Some(wall) = Self::get_connecting_wall(*room1, *room2) {
+                    let pos = wall.choose(rng);
+                    self.carve_floor(pos, 0, opts.floor);
+                    break;
+                }
+            }
         }
         rooms
+    }
+
+    fn get_connecting_wall(room1: Rect, room2: Rect) -> Option<Rect> {
+        // one-tile-wall between them
+        for (room1, room2) in &[(room1, room2), (room2, room1)] {
+            // room2 right of room1
+            if room1.x2 + 2 == room2.x1 {
+                let y1 = room1.y1.max(room2.y1);
+                let y2 = room1.y2.min(room2.y2);
+                if y1 <= y2 {
+                    return Some(Rect {
+                        x1: room1.x2 + 1,
+                        x2: room1.x2 + 1,
+                        y1,
+                        y2,
+                    });
+                }
+            }
+            // room2 under room1
+            if room1.y2 + 2 == room2.y1 {
+                let x1 = room1.x1.max(room2.x1);
+                let x2 = room1.x2.min(room2.x2);
+                if x1 <= x2 {
+                    return Some(Rect {
+                        x1,
+                        x2,
+                        y1: room1.y2 + 1,
+                        y2: room1.y2 + 1,
+                    });
+                }
+            }
+        }
+        None
     }
 
     pub fn carve_rooms_bsp(
@@ -700,7 +746,6 @@ pub fn generate_world(world: &mut World, seed: u64) {
         let pos = Pos { x, y };
         world.mobs.insert(pos, Mob::new(MobKind::Zombie));
     }
-
     world[Pos { x: 8, y: 0 }].kind = TileKind::Floor;
 }
 
