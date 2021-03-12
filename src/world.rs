@@ -623,7 +623,7 @@ impl World {
                     }
                     if !never_saw_player_before {
                         if let Some(target) = mob.saw_player_at {
-                            if let Some(off) = self.path(pos, target) {
+                            if let Some(off) = self.path(pos, target, 20) {
                                 let new_pos = pos + off;
                                 if self.player_pos == new_pos {
                                     self.player_damage += 1;
@@ -660,7 +660,7 @@ impl World {
         self.player_pos
     }
 
-    pub fn path(&self, start: Pos, end: Pos) -> Option<Offset> {
+    pub fn path(&self, start: Pos, end: Pos, maxdist: usize) -> Option<Offset> {
         if start == end {
             return Some(Offset { x: 0, y: 0 });
         }
@@ -671,6 +671,9 @@ impl World {
         periphery.push(vec![start]);
         loop {
             if periphery.is_empty() {
+                return None;
+            }
+            if periphery[0].len() > maxdist {
                 return None;
             }
             for path in periphery.drain(..) {
