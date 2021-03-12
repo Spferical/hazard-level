@@ -286,7 +286,7 @@ impl Ui {
             h as i32 - 1,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_BLACK),
-            "move:←↓↑→ shoot:shift+move",
+            "move:←↓↑→ shoot:shift+move wait:space",
         );
         ctx.print_color_centered(
             0,
