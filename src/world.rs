@@ -377,12 +377,10 @@ impl Rect {
 
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
-        let mut mobs = HashMap::new();
-        mobs.insert(Pos { x: 1, y: 1 }, Mob::new(MobKind::Zombie));
         World {
             chunks: IndexMap::new(),
             default_chunk,
-            mobs,
+            mobs: HashMap::new(),
             player_pos: Pos { x: 0, y: 0 },
             player_damage: 0,
         }
@@ -436,7 +434,7 @@ impl World {
         let mut pos = start;
         loop {
             pos += off;
-            if !TILE_INFOS[self[pos].kind].walkable {
+            if !TILE_INFOS[self[pos].kind].walkable && self[pos].kind != TileKind::Ocean {
                 break pos;
             } else if self.mobs.get_mut(&pos).is_some() {
                 self.damage_mob(pos);
@@ -492,10 +490,10 @@ impl World {
         rect: Rect,
         opts: &CarveRoomOpts,
         rng: &mut impl Rng,
-        loopiness: u32,
+        loopiness: f32,
     ) -> Vec<Rect> {
         let rooms = self.carve_rooms_bsp(rect, opts, rng);
-        for _ in 0..loopiness {
+        for _ in 0..(rooms.len() as f32 * loopiness) as u32 {
             loop {
                 let room1 = rooms.choose(rng).unwrap();
                 let room2 = rooms.choose(rng).unwrap();
@@ -751,7 +749,7 @@ fn gen_offices(
         min_height: 2,
     };
     let rect = Rect::new(rect.x1 + 1, rect.x2 - 1, rect.y1 + 1, rect.y2 - 1);
-    let rooms = world.carve_rooms_bsp_extra_loops(rect, &bsp_opts, rng, 300);
+    let rooms = world.carve_rooms_bsp_extra_loops(rect, &bsp_opts, rng, 1.0);
     for room in &rooms {
         // furnish the rooms a little
         let r: f32 = rng.gen_range(0.0..1.0);
@@ -780,13 +778,13 @@ fn gen_offices(
 
     let rightmost_room = **rooms
         .iter()
-        .filter(|r| r.x2 == 99)
+        .filter(|r| r.x2 == rect.x2)
         .collect::<Vec<_>>()
         .choose(rng)
         .unwrap();
     let center_y = avg!(rightmost_room.y1, rightmost_room.y2);
     let right_wall = Pos {
-        x: 100,
+        x: rect.x2 + 1,
         y: center_y,
     };
     world.carve_floor(right_wall, 0, TileKind::Floor);
@@ -800,20 +798,20 @@ pub fn generate_world(world: &mut World, seed: u64) {
     let brush_size = 2;
     world[start].kind = TileKind::Floor;
     // left ocean
-    world.fill_rect(Rect::new(-20, 40, -30, 30), TileKind::Ocean);
+    world.fill_rect(Rect::new(-50, 40, -50, 50), TileKind::Ocean);
     world.fill_rect(Rect::new(-10, 10, -10, 10), TileKind::BlackFloor);
     // h for helicopter
     world.fill_rect(Rect::new(-3, -3, -3, 3), TileKind::YellowFloor);
     world.fill_rect(Rect::new(3, 3, -3, 3), TileKind::YellowFloor);
     world.fill_rect(Rect::new(-3, 3, 0, 0), TileKind::YellowFloor);
 
-    let (edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 100, -30, 30));
-    // containment
+    let (edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
 
     world.fill_rect(
         Rect::new(edge.x + 1, edge.x + 4, edge.y - 2, edge.y + 2),
         TileKind::BloodyFloor,
     );
+
     // goal
     world.carve_floor(edge + Offset { x: 2, y: 0 }, 0, TileKind::Computer);
 }
