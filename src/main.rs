@@ -1,3 +1,4 @@
+use crate::world::Item;
 use crate::world::MissionState;
 use crate::world::MobKind;
 use crate::world::PLAYER_MAX_HEALTH;
@@ -109,6 +110,17 @@ struct MobPrintable {
 fn get_mob_printable(kind: MobKind, visible: bool) -> MobPrintable {
     let (symbol, fg) = match (kind, visible) {
         (MobKind::Zombie, _) => ("@", DARK_YELLOW),
+    };
+    MobPrintable {
+        symbol,
+        fg: RGB::named(fg),
+    }
+}
+
+fn get_item_printable(item: Item, visible: bool) -> MobPrintable {
+    let (symbol, fg) = match (item, visible) {
+        (Item::Corpse, _) => ("%", DARK_RED),
+        (Item::Ammo, _) => ("=", LIGHT_BLUE),
     };
     MobPrintable {
         symbol,
@@ -237,13 +249,20 @@ impl Ui {
                 } else {
                     &gs.player_memory
                 };
-                let mut printable = get_printable(world[map_pos].kind, seen.contains(&map_pos));
+                let visible = seen.contains(&map_pos);
+                let mut printable = get_printable(world[map_pos].kind, visible);
                 if world[map_pos].blood {
                     printable.fg = RGB::named(DARK_RED);
                 }
-                if world[map_pos].corpse {
-                    printable.fg = RGB::named(DARK_RED);
-                    printable.symbol = "%";
+                if let Some(item) = world[map_pos].item {
+                    let MobPrintable { fg, symbol } = get_item_printable(item, visible);
+                    printable.fg = fg;
+                    printable.symbol = symbol;
+                }
+                if let Some(mob) = self.gs.player_memory.mobs.get(&map_pos) {
+                    let MobPrintable { fg, symbol } = get_mob_printable(mob.kind, visible);
+                    printable.fg = fg;
+                    printable.symbol = symbol;
                 }
                 let screen_pos = self.map_rect_to_screen(rect_pos, screen_rect);
 
@@ -254,17 +273,6 @@ impl Ui {
                     printable.bg,
                     printable.symbol,
                 );
-
-                if let Some(mob) = self.gs.player_memory.mobs.get(&map_pos) {
-                    let mob_printable = get_mob_printable(mob.kind, seen.contains(&map_pos));
-                    ctx.print_color(
-                        screen_pos.x,
-                        screen_pos.y,
-                        mob_printable.fg,
-                        printable.bg,
-                        mob_printable.symbol,
-                    );
-                }
             }
         }
         let player_pos = self.gs.world.player_pos();

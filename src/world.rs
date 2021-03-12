@@ -267,10 +267,16 @@ impl TileKind {
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
+pub enum Item {
+    Corpse,
+    Ammo,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct Tile {
     pub kind: TileKind,
     pub blood: bool,
-    pub corpse: bool,
+    pub item: Option<Item>,
 }
 
 impl Tile {
@@ -278,7 +284,7 @@ impl Tile {
         Self {
             kind,
             blood: false,
-            corpse: false,
+            item: None,
         }
     }
 }
@@ -418,7 +424,9 @@ impl World {
         if mob.damage >= mob.kind.max_health() {
             drop(mob);
             self.mobs.remove(&pos);
-            self[pos].corpse = true;
+            if self[pos].item.is_none() {
+                self[pos].item = Some(Item::Corpse);
+            }
         }
     }
 
@@ -653,7 +661,7 @@ impl World {
                     }
                     if !never_saw_player_before {
                         if let Some(target) = mob.saw_player_at {
-                            if let Some(off) = self.path(pos, target, 20) {
+                            if let Some(off) = self.path(pos, target, FOV_RANGE as usize * 3) {
                                 let new_pos = pos + off;
                                 if self.player_pos == new_pos {
                                     self.player_damage += 1;
