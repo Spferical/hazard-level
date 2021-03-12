@@ -1,7 +1,10 @@
+use crate::world::MissionState;
 use crate::world::MobKind;
 use crate::world::PLAYER_MAX_HEALTH;
 use crate::world::{Offset, Pos, TileKind};
 use bracket_lib::prelude::*;
+use rand::rngs::SmallRng;
+use rand::SeedableRng;
 use std::collections::HashSet;
 
 mod fov;
@@ -55,6 +58,7 @@ enum Effect {
 struct Ui {
     gs: world::GameState,
     effects: Vec<Effect>,
+    rng: SmallRng,
 }
 
 impl GameState for Ui {
@@ -85,6 +89,8 @@ fn get_printable(tile_kind: TileKind, visible: bool) -> TilePrintable {
         (TileKind::YellowFloor, false) => (".", LIGHT_YELLOW, DARK_BLACK),
         (TileKind::BloodyFloor, false) => (".", DARK_RED, DARK_BLACK),
         (TileKind::BloodyFloor, true) => (".", DARK_RED, LIGHT_BLACK),
+        (TileKind::Fire, true) => ("!", DARK_RED, LIGHT_RED),
+        (TileKind::Fire, false) => ("!", DARK_RED, DARK_BLACK),
         (TileKind::Unseen, _) => (" ", DARK_BLACK, DARK_BLACK),
         (_, _) => ("?", LIGHT_BLUE, DARK_BLACK),
     };
@@ -276,23 +282,28 @@ impl Ui {
             x: 0,
             y: 0,
             w: w as i32,
-            h: h as i32 - 1,
+            h: h as i32 - 2,
         };
         let player_pos = self.gs.world.player_pos();
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
         self.handle_effects(ctx, map_rect, &seen);
+        let (mission_status, color) = match self.gs.state {
+            MissionState::Start => (
+                "Find the computer and enter the code...",
+                RGB::named(LIGHT_BLUE),
+            ),
+            MissionState::CodeEntered { seconds_left: _ } => {
+                ("CODE ENTERED! Now get outta here!", RGB::named(LIGHT_RED))
+            }
+            MissionState::Win => ("YOU WIN!", RGB::named(DARK_GREEN)),
+        };
+        ctx.print_color_centered(h as i32 - 2, color, RGB::named(DARK_BLACK), mission_status);
         ctx.print_color_centered(
             h as i32 - 1,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_BLACK),
             "move:←↓↑→ shoot:shift+move wait:space",
-        );
-        ctx.print_color_centered(
-            0,
-            RGB::named(LIGHT_WHITE),
-            RGB::named(DARK_BLACK),
-            &format!("{}", ctx.shift),
         );
     }
 }
@@ -300,7 +311,7 @@ impl Ui {
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
     let dt = ctx.frame_time_ms;
-    if ctx.key.is_some() && ui.gs.world.player_is_dead() {
+    if ctx.key.is_some() && ui.gs.player_is_dead() {
         ui.effects.push(Effect::Text {
             pos: Pos { x: 20, y: 20 },
             color: RGB::named(DARK_RED),
@@ -337,12 +348,32 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
             }
         }
     };
+    if moved {
+        if let MissionState::CodeEntered { seconds_left } = ui.gs.state {
+            if seconds_left % 10 == 0 {
+                let rect = world::Rect {
+                    x1: 0,
+                    y1: 0,
+                    x2: 60,
+                    y2: 50,
+                };
+                let pos = rect.choose(&mut ui.rng);
+                ui.effects.push(Effect::Text {
+                    color: RGB::named(DARK_RED),
+                    pos,
+                    text: format!("self destruct in T minus {} seconds", seconds_left),
+                    time_left: 1.0,
+                });
+            }
+        }
+    }
     ui.gs.tick(dt, moved);
 }
 
 fn main() {
     let context = BTermBuilder::simple80x50()
         .with_title("Roguelike Tutorial")
+        .with_fps_cap(30.0)
         .build()
         .unwrap();
     let mut gs = world::GameState::new();
@@ -350,6 +381,7 @@ fn main() {
     let ui = Ui {
         gs,
         effects: vec![],
+        rng: SmallRng::from_seed([7; 32]),
     };
     main_loop(context, ui).unwrap();
 }

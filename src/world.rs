@@ -184,6 +184,8 @@ pub enum TileKind {
     BlackFloor,
     YellowFloor,
     BloodyFloor,
+    Computer,
+    Fire,
     // represents unseen tile in player memory World -- should never actually exist
     Unseen,
 }
@@ -235,6 +237,14 @@ lazy_static! {
         TileKind::BloodyFloor=> TileKindInfo {
             opaque: false,
             walkable: true,
+        },
+        TileKind::Computer=> TileKindInfo {
+            opaque: true,
+            walkable: true,
+        },
+        TileKind::Fire=> TileKindInfo {
+            opaque: false,
+            walkable: false,
         },
     };
 }
@@ -333,14 +343,14 @@ pub struct CarveRoomOpts {
 
 #[derive(Clone, Copy)]
 pub struct Rect {
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+    pub x1: i32,
+    pub y1: i32,
+    pub x2: i32,
+    pub y2: i32,
 }
 
 impl Rect {
-    fn choose(&self, rng: &mut impl Rng) -> Pos {
+    pub fn choose(&self, rng: &mut impl Rng) -> Pos {
         let x = rng.gen_range(self.x1..=self.x2);
         let y = rng.gen_range(self.y1..=self.y2);
         Pos { x, y }
@@ -396,10 +406,6 @@ impl World {
 
     fn damage_player(&mut self) {
         self.player_damage += 1;
-    }
-
-    pub fn player_is_dead(&self) -> bool {
-        self.player_damage >= PLAYER_MAX_HEALTH
     }
 
     pub fn player_damage(&self) -> u32 {
@@ -715,7 +721,6 @@ pub fn generate_world(world: &mut World, seed: u64) {
     world.carve_rect(3, 3, -3, 3, TileKind::YellowFloor);
     world.carve_rect(-3, 3, 0, 0, TileKind::YellowFloor);
     // facility
-    // world.carve_rect(8, 100, -30, 30, TileKind::Floor);
     world.carve_rect(8, 100, -30, 30, TileKind::Wall);
     let bsp_opts = CarveRoomOpts {
         wall: TileKind::Wall,
@@ -728,7 +733,8 @@ pub fn generate_world(world: &mut World, seed: u64) {
     let rooms = world.carve_rooms_bsp_extra_loops(9, 99, -29, 29, &bsp_opts, &mut rng, 300);
     for room in &rooms {
         // furnish the rooms a little
-        if rng.gen_range(0..100) < 30 {
+        let r: f32 = rng.gen_range(0.0..1.0);
+        if r < 0.30 {
             for _ in 0..10 {
                 // add some spashes of blood
                 let x1 = rng.gen_range(room.x1..=room.x2);
@@ -750,12 +756,41 @@ pub fn generate_world(world: &mut World, seed: u64) {
         world.mobs.insert(pos, Mob::new(MobKind::Zombie));
     }
     world[Pos { x: 8, y: 0 }].kind = TileKind::Floor;
+
+    let rightmost_room = **rooms
+        .iter()
+        .filter(|r| r.x2 == 99)
+        .collect::<Vec<_>>()
+        .choose(&mut rng)
+        .unwrap();
+    let center_y = avg!(rightmost_room.y1, rightmost_room.y2);
+    let right_wall = Pos {
+        x: 100,
+        y: center_y,
+    };
+    world.carve_floor(right_wall, 0, TileKind::Floor);
+    world.carve_rect(
+        right_wall.x + 1,
+        right_wall.x + 4,
+        right_wall.y - 2,
+        right_wall.y + 2,
+        TileKind::BloodyFloor,
+    );
+    // goal
+    world.carve_floor(right_wall + Offset { x: 2, y: 0 }, 0, TileKind::Computer);
+}
+
+pub enum MissionState {
+    Start,
+    CodeEntered { seconds_left: u32 },
+    Win,
 }
 
 pub struct GameState {
     pub world: World,
     pub player_memory: World,
     pub debug_mode: bool,
+    pub state: MissionState,
 }
 
 impl GameState {
@@ -764,7 +799,12 @@ impl GameState {
             world: World::new(&WALL_CHUNK),
             player_memory: World::new(&UNSEEN_CHUNK),
             debug_mode: false,
+            state: MissionState::Start,
         }
+    }
+
+    pub fn player_is_dead(&self) -> bool {
+        self.world.player_damage >= PLAYER_MAX_HEALTH && !self.debug_mode
     }
 
     pub fn generate_world(&mut self, seed: u64) {
@@ -773,13 +813,43 @@ impl GameState {
     }
 
     pub fn move_player(&mut self, o: Offset) -> bool {
-        let ret = self.world.move_player(o, self.debug_mode);
+        let force = self.debug_mode
+            || (matches!(self.state, MissionState::CodeEntered { .. })
+                && self.world[self.world.player_pos + o].kind == TileKind::Ocean);
+        let ret = self.world.move_player(o, force);
         self.update_memory();
         ret
     }
 
     pub fn tick(&mut self, dt: f32, player_moved: bool) {
         self.world.tick(dt, player_moved);
+        if player_moved {
+            self.state = match self.state {
+                MissionState::Start => {
+                    if self.world[self.world.player_pos].kind == TileKind::Computer {
+                        MissionState::CodeEntered { seconds_left: 360 }
+                    } else {
+                        MissionState::Start
+                    }
+                }
+                MissionState::CodeEntered { mut seconds_left } => {
+                    if self.world[self.world.player_pos].kind == TileKind::Ocean {
+                        MissionState::Win
+                    } else {
+                        if seconds_left != 0 {
+                            seconds_left -= 1;
+                            if seconds_left == 0 {
+                                self.world
+                                    .carve_floor(self.world.player_pos, 20, TileKind::Fire);
+                                self.world.player_damage += 1000;
+                            }
+                        }
+                        MissionState::CodeEntered { seconds_left }
+                    }
+                }
+                MissionState::Win => MissionState::Win,
+            };
+        }
         self.update_memory();
     }
 
