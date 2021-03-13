@@ -9,6 +9,7 @@ use rand::SeedableRng;
 use std::collections::HashSet;
 
 mod fov;
+mod map_gen;
 mod world;
 
 const FOV_RANGE: i32 = 8;
