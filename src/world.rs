@@ -718,7 +718,13 @@ impl World {
         }
     }
 
-    fn move_towards(&mut self, pos: Pos, target: Pos, through_walls: bool) -> Pos {
+    fn move_towards(
+        &mut self,
+        pos: Pos,
+        target: Pos,
+        through_walls: bool,
+        around_mobs: bool,
+    ) -> Pos {
         let off = if through_walls {
             let mut off = (target - pos).norm();
             if off.x != 0 && off.y != 0 {
@@ -727,7 +733,7 @@ impl World {
             }
             Some(off)
         } else {
-            self.path(pos, target, FOV_RANGE as usize * 3)
+            self.path(pos, target, FOV_RANGE as usize * 3, around_mobs)
         };
         if let Some(off) = off {
             let new_pos = pos + off;
@@ -746,6 +752,7 @@ impl World {
         mob: &mut Mob,
         pos: Pos,
         through_walls: bool,
+        around_mobs: bool,
     ) -> Option<Pos> {
         let never_saw_player_before = mob.saw_player_at.is_none();
         if !never_saw_player_before {
@@ -754,7 +761,7 @@ impl World {
                     self.player_damage += 1;
                     Some(pos)
                 } else {
-                    Some(self.move_towards(pos, target, through_walls))
+                    Some(self.move_towards(pos, target, through_walls, around_mobs))
                 }
             } else {
                 None
@@ -773,7 +780,7 @@ impl World {
                 *idx %= patrol.len();
                 goal = patrol[*idx];
             }
-            self.move_towards(pos, goal, true)
+            self.move_towards(pos, goal, true, true)
         } else {
             pos
         }
@@ -801,7 +808,7 @@ impl World {
                         effects.push((pos, Effect::Creak));
                     }
                     let new_pos = self
-                        .pursue_if_seen_player(&mut mob, pos, true)
+                        .pursue_if_seen_player(&mut mob, pos, true, true)
                         .unwrap_or_else(|| self.patrol(&mut mob, pos));
                     let influence = Rect::smol(new_pos).expand(range);
                     for new_pos in influence.into_iter() {
@@ -818,7 +825,7 @@ impl World {
                         effects.push((pos, Effect::Shuffle));
                     }
 
-                    self.pursue_if_seen_player(&mut mob, pos, false)
+                    self.pursue_if_seen_player(&mut mob, pos, false, false)
                         .unwrap_or(pos)
                 }
                 MobKind::Alien => {
@@ -832,12 +839,12 @@ impl World {
                         } else if mob.alien_state == 3 {
                             for _ in 0..4 {
                                 pos = self
-                                    .pursue_if_seen_player(&mut mob, pos, false)
+                                    .pursue_if_seen_player(&mut mob, pos, false, true)
                                     .unwrap_or(pos);
                             }
                         } else {
                             pos = self
-                                .pursue_if_seen_player(&mut mob, pos, false)
+                                .pursue_if_seen_player(&mut mob, pos, false, false)
                                 .unwrap_or(pos);
                         }
                         mob.alien_state += 1;
@@ -862,7 +869,7 @@ impl World {
         self.player_pos
     }
 
-    pub fn path(&self, start: Pos, end: Pos, maxdist: usize) -> Option<Offset> {
+    pub fn path(&self, start: Pos, end: Pos, maxdist: usize, around_mobs: bool) -> Option<Offset> {
         if start == end {
             return Some(Offset { x: 0, y: 0 });
         }
@@ -886,8 +893,7 @@ impl World {
                     .map(|c| pos + c)
                     .filter(|pos| !visited.contains(pos))
                     .filter(|pos| self[*pos].kind.is_walkable())
-                    // TODO: maybe enabling this with a flag, it makes zombies worse
-                    // .filter(|pos| !self.mobs.contains_key(pos))
+                    .filter(|pos| !around_mobs || !self.mobs.contains_key(pos))
                     .collect::<Vec<_>>();
                 for pos in adjacent {
                     visited.insert(pos);
