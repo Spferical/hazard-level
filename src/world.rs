@@ -15,7 +15,7 @@ use crate::fov;
 
 pub const CHUNKSIZE: usize = 16;
 pub const FOV_RANGE: i32 = 8;
-pub const PLAYER_MAX_HEALTH: u32 = 4;
+pub const PLAYER_MAX_HEALTH: i32 = 4;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -340,7 +340,7 @@ pub struct World {
     default_chunk: &'static Chunk,
     pub mobs: HashMap<Pos, Mob>,
     player_pos: Pos,
-    player_damage: u32,
+    player_damage: i32,
     pub player_ammo: u32,
 }
 
@@ -500,7 +500,7 @@ impl World {
         self.player_damage += 1;
     }
 
-    pub fn player_damage(&self) -> u32 {
+    pub fn player_damage(&self) -> i32 {
         self.player_damage
     }
 

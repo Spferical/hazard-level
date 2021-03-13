@@ -358,7 +358,17 @@ impl Ui {
             1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => RGB::named(LIGHT_RED),
             _ => RGB::named(LIGHT_GREEN),
         };
-        statusbar.push((self.gs.world.player_ammo.to_string() + " ", color));
+        statusbar.push((self.gs.world.player_ammo.to_string(), color));
+        statusbar.push((" hp:".to_string(), RGB::named(LIGHT_WHITE)));
+        let color = match self.gs.world.player_damage() {
+            0 => RGB::named(LIGHT_GREEN),
+            1 | 2 | 3 => RGB::named(LIGHT_YELLOW),
+            _ => RGB::named(LIGHT_RED),
+        };
+        statusbar.push((
+            (PLAYER_MAX_HEALTH - self.gs.world.player_damage()).to_string() + " ",
+            color,
+        ));
         statusbar.push(match self.gs.state {
             MissionState::Start => (
                 "Find the computer and enter the code...".to_string(),
