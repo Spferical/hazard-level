@@ -970,32 +970,27 @@ fn generate_containment(
         world.fill_rect(corr_rect, TileKind::Floor);
     }
     // rooms
+    let mut rooms = Vec::<Rect>::new();
     for sq_x in 0..corridors_vert - 1 {
         for sq_y in 0..corridors_horiz - 1 {
             let x1 = rect.x1 + sq_x * (corridor_width + between_corridors) + corridor_width;
             let x2 = rect.x1 + (sq_x + 1) * (corridor_width + between_corridors) - 1;
             let y1 = rect.y1 + sq_y * (corridor_width + between_corridors) + corridor_width;
             let y2 = rect.y1 + (sq_y + 1) * (corridor_width + between_corridors) - 1;
-            world.fill_rect(
+            let block = [
                 Rect::new(x1 + 1, x1 + room_size, y1 + 1, y1 + room_size),
-                TileKind::Floor,
-            );
-            world.fill_rect(
                 Rect::new(x1 + 1, x1 + room_size, y2 - room_size, y2 - 1),
-                TileKind::Floor,
-            );
-            world.fill_rect(
                 Rect::new(x2 - room_size, x2 - 1, y1 + 1, y1 + room_size),
-                TileKind::Floor,
-            );
-            world.fill_rect(
                 Rect::new(x2 - room_size, x2 - 1, y2 - room_size, y2 - 1),
-                TileKind::Floor,
-            );
+            ];
+            for room in &block {
+                world.fill_rect(*room, TileKind::Floor);
+            }
             world.carve_floor(Pos::new(x1 + room_size, y1), 0, TileKind::Floor);
             world.carve_floor(Pos::new(x2 - room_size, y1), 0, TileKind::Floor);
             world.carve_floor(Pos::new(x1 + room_size, y2), 0, TileKind::Floor);
             world.carve_floor(Pos::new(x2 - room_size, y2), 0, TileKind::Floor);
+            rooms.extend(&block);
         }
     }
     let exit = Pos::new(rect.x2, avg!(rect.y1, rect.y2));
@@ -1008,6 +1003,28 @@ fn generate_containment(
         Pos::new(rect.x2 - 1, rect.y1 + 1),
     ]);
     world.mobs.insert(exit, man);
+
+    // spawn some enemies
+    for _ in 0..10 {
+        let room = rooms.choose(rng).unwrap();
+        let x = rng.gen_range(room.x1..=room.x2);
+        let y = rng.gen_range(room.y1..=room.y2);
+        let pos = Pos { x, y };
+        world.mobs.insert(pos, Mob::new(MobKind::Zombie));
+    }
+
+    // spawn some ammo
+    for _ in 0..2 {
+        loop {
+            let room = rooms.choose(rng).unwrap();
+            let pos = room.choose(rng);
+            if world[pos].item.is_none() {
+                world[pos].item = Some(Item::Ammo);
+                break;
+            }
+        }
+    }
+    // spawn the thing
 
     (exit, Offset { x: 1, y: 0 })
 }
