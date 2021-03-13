@@ -236,27 +236,27 @@ lazy_static! {
             opaque: true,
             walkable: false,
         },
-        TileKind::Ocean=> TileKindInfo {
+        TileKind::Ocean => TileKindInfo {
             opaque: false,
             walkable: false,
         },
-        TileKind::BlackFloor=> TileKindInfo {
+        TileKind::BlackFloor => TileKindInfo {
             opaque: false,
             walkable: true,
         },
-        TileKind::YellowFloor=> TileKindInfo {
+        TileKind::YellowFloor => TileKindInfo {
             opaque: false,
             walkable: true,
         },
-        TileKind::BloodyFloor=> TileKindInfo {
+        TileKind::BloodyFloor => TileKindInfo {
             opaque: false,
             walkable: true,
         },
-        TileKind::Computer=> TileKindInfo {
+        TileKind::Computer => TileKindInfo {
             opaque: true,
             walkable: true,
         },
-        TileKind::Fire=> TileKindInfo {
+        TileKind::Fire => TileKindInfo {
             opaque: false,
             walkable: false,
         },
