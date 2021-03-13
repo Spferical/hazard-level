@@ -203,6 +203,7 @@ pub enum TileKind {
 #[derive(Enum, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum MobKind {
     Zombie,
+    Alien,
     OldMan,
 }
 
@@ -211,6 +212,7 @@ impl MobKind {
         match self {
             Self::Zombie => 2,
             Self::OldMan => 10,
+            Self::Alien => 1,
         }
     }
 }
@@ -303,6 +305,7 @@ pub struct Mob {
     pub saw_player_at: Option<Pos>,
     pub patrol: Option<Vec<Pos>>,
     pub patrol_idx: Option<usize>,
+    pub alien_state: i32,
 }
 
 impl Mob {
@@ -313,6 +316,7 @@ impl Mob {
             saw_player_at: None,
             patrol: None,
             patrol_idx: None,
+            alien_state: 0,
         }
     }
 }
@@ -439,6 +443,7 @@ impl IntoIterator for Rect {
 pub enum Effect {
     Shuffle,
     Creak,
+    Hiss,
 }
 
 impl World {
@@ -816,6 +821,30 @@ impl World {
                     self.pursue_if_seen_player(&mut mob, pos, false)
                         .unwrap_or(pos)
                 }
+                MobKind::Alien => {
+                    if seen.contains(&pos) {
+                        mob.saw_player_at = Some(self.player_pos);
+                    }
+                    let mut pos = pos;
+                    if mob.saw_player_at.is_some() {
+                        if mob.alien_state == 2 {
+                            effects.push((pos, Effect::Hiss));
+                        } else if mob.alien_state == 3 {
+                            for _ in 0..4 {
+                                pos = self
+                                    .pursue_if_seen_player(&mut mob, pos, false)
+                                    .unwrap_or(pos);
+                            }
+                        } else {
+                            pos = self
+                                .pursue_if_seen_player(&mut mob, pos, false)
+                                .unwrap_or(pos);
+                        }
+                        mob.alien_state += 1;
+                        mob.alien_state %= 4;
+                    }
+                    pos
+                }
             };
             self.mobs.insert(new_pos, mob);
         }
@@ -857,6 +886,8 @@ impl World {
                     .map(|c| pos + c)
                     .filter(|pos| !visited.contains(pos))
                     .filter(|pos| self[*pos].kind.is_walkable())
+                    // TODO: maybe enabling this with a flag, it makes zombies worse
+                    // .filter(|pos| !self.mobs.contains_key(pos))
                     .collect::<Vec<_>>();
                 for pos in adjacent {
                     visited.insert(pos);
@@ -915,7 +946,13 @@ fn gen_offices(
         let x = rng.gen_range(room.x1..=room.x2);
         let y = rng.gen_range(room.y1..=room.y2);
         let pos = Pos { x, y };
-        world.mobs.insert(pos, Mob::new(MobKind::Zombie));
+        let rand = rng.gen::<f32>();
+        let kind = if rand < 0.1 {
+            MobKind::Alien
+        } else {
+            MobKind::Zombie
+        };
+        world.mobs.insert(pos, Mob::new(kind));
     }
 
     // spawn some ammo
@@ -1027,7 +1064,13 @@ fn generate_containment(
         let x = rng.gen_range(room.x1..=room.x2);
         let y = rng.gen_range(room.y1..=room.y2);
         let pos = Pos { x, y };
-        world.mobs.insert(pos, Mob::new(MobKind::Zombie));
+        let rand = rng.gen::<f32>();
+        let kind = if rand < 0.1 {
+            MobKind::Alien
+        } else {
+            MobKind::Zombie
+        };
+        world.mobs.insert(pos, Mob::new(kind));
     }
 
     // spawn some ammo

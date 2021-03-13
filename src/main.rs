@@ -112,6 +112,7 @@ fn get_mob_printable(kind: MobKind, visible: bool) -> MobPrintable {
     let (symbol, fg) = match (kind, visible) {
         (MobKind::Zombie, _) => ("@", DARK_YELLOW),
         (MobKind::OldMan, _) => ("@", LIGHT_PURPLE),
+        (MobKind::Alien, _) => (",", LIGHT_YELLOW),
     };
     MobPrintable {
         symbol,
@@ -343,7 +344,7 @@ impl Ui {
     }
 
     fn draw(&mut self, ctx: &mut BTerm) {
-        let (w, h) = ctx.get_char_size();
+        let (_w, h) = ctx.get_char_size();
         let map_rect = Self::get_map_rect(ctx);
         let player_pos = self.gs.world.player_pos();
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
@@ -449,7 +450,7 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
         match effect {
             world::Effect::Creak => {
                 ui.effects.push(Effect::Text {
-                    color: RGB::named(DARK_YELLOW),
+                    color: RGB::named(DARK_RED),
                     pos,
                     text: "*creak*".to_string(),
                     time_left: 1.0,
@@ -460,6 +461,14 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     color: RGB::named(DARK_YELLOW),
                     pos,
                     text: "*shuffle*".to_string(),
+                    time_left: 1.0,
+                });
+            }
+            world::Effect::Hiss => {
+                ui.effects.push(Effect::Text {
+                    color: RGB::named(DARK_GREEN),
+                    pos,
+                    text: "*hiss*".to_string(),
                     time_left: 1.0,
                 });
             }
