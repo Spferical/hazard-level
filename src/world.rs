@@ -363,7 +363,7 @@ pub struct CarveRoomOpts {
     min_height: i32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Rect {
     pub x1: i32,
     pub y1: i32,
@@ -817,6 +817,81 @@ fn gen_offices(
     (right_wall, Offset { x: 1, y: 0 })
 }
 
+fn generate_containment(
+    world: &mut World,
+    rng: &mut impl Rng,
+    left_entrance: Pos,
+) -> (Pos, Offset) {
+    // predictable grid of corridors
+    let corridor_width = 2;
+    let room_size = 2;
+    world.carve_floor(left_entrance, 1, TileKind::Floor);
+    // assuming everything's walls already
+    // corridors
+    let corridors_vert = 3;
+    let corridors_horiz = 4;
+    let between_corridors = 3 + room_size * 2;
+    let rect = Rect::new(
+        left_entrance.x,
+        left_entrance.x
+            + corridors_vert * corridor_width
+            + (corridors_vert - 1) * between_corridors
+            - 1,
+        left_entrance.y,
+        left_entrance.y
+            + corridors_horiz * corridor_width
+            + (corridors_horiz - 1) * between_corridors
+            - 1,
+    );
+    // horizontal
+    for i in 0..corridors_horiz {
+        let y1 = rect.y1 + i * (corridor_width + between_corridors);
+        let y2 = y1 + corridor_width - 1;
+        let corr_rect = Rect::new(rect.x1, rect.x2, y1, y2);
+        world.fill_rect(corr_rect, TileKind::Floor);
+    }
+    // vertical
+    for i in 0..corridors_vert {
+        let x1 = rect.x1 + i * (corridor_width + between_corridors);
+        let x2 = x1 + corridor_width - 1;
+        let corr_rect = Rect::new(x1, x2, rect.y1, rect.y2);
+        world.fill_rect(corr_rect, TileKind::Floor);
+    }
+    // rooms
+    for sq_x in 0..corridors_vert - 1 {
+        for sq_y in 0..corridors_horiz - 1 {
+            let x1 = rect.x1 + sq_x * (corridor_width + between_corridors) + corridor_width;
+            let x2 = rect.x1 + (sq_x + 1) * (corridor_width + between_corridors) - 1;
+            let y1 = rect.y1 + sq_y * (corridor_width + between_corridors) + corridor_width;
+            let y2 = rect.y1 + (sq_y + 1) * (corridor_width + between_corridors) - 1;
+            world.fill_rect(
+                Rect::new(x1 + 1, x1 + room_size, y1 + 1, y1 + room_size),
+                TileKind::Floor,
+            );
+            world.fill_rect(
+                Rect::new(x1 + 1, x1 + room_size, y2 - room_size, y2 - 1),
+                TileKind::Floor,
+            );
+            world.fill_rect(
+                Rect::new(x2 - room_size, x2 - 1, y1 + 1, y1 + room_size),
+                TileKind::Floor,
+            );
+            world.fill_rect(
+                Rect::new(x2 - room_size, x2 - 1, y2 - room_size, y2 - 1),
+                TileKind::Floor,
+            );
+            world.carve_floor(Pos::new(x1 + room_size, y1), 0, TileKind::Floor);
+            world.carve_floor(Pos::new(x2 - room_size, y1), 0, TileKind::Floor);
+            world.carve_floor(Pos::new(x1 + room_size, y2), 0, TileKind::Floor);
+            world.carve_floor(Pos::new(x2 - room_size, y2), 0, TileKind::Floor);
+        }
+    }
+    (
+        Pos::new(rect.x2, avg!(rect.y1, rect.y2)),
+        Offset { x: 1, y: 0 },
+    )
+}
+
 pub fn generate_world(world: &mut World, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
     // left ocean
@@ -827,7 +902,12 @@ pub fn generate_world(world: &mut World, seed: u64) {
     world.fill_rect(Rect::new(3, 3, -3, 3), TileKind::YellowFloor);
     world.fill_rect(Rect::new(-3, 3, 0, 0), TileKind::YellowFloor);
 
-    let (edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
+    let (mut edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
+    world.carve_floor(edge, 0, TileKind::Floor);
+    edge += dir;
+    let (mut edge, dir) = generate_containment(world, &mut rng, edge);
+    edge += dir;
+    world.carve_floor(edge, 0, TileKind::Floor);
 
     // goal
     world.fill_rect(
