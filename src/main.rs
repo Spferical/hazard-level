@@ -331,7 +331,7 @@ impl Ui {
         }
     }
 
-    fn draw(&mut self, ctx: &mut BTerm) {
+    fn get_map_rect(ctx: &BTerm) -> Rect {
         let (w, h) = ctx.get_char_size();
         let map_rect = Rect {
             x: 0,
@@ -339,6 +339,12 @@ impl Ui {
             w: w as i32,
             h: h as i32 - 2,
         };
+        map_rect
+    }
+
+    fn draw(&mut self, ctx: &mut BTerm) {
+        let (w, h) = ctx.get_char_size();
+        let map_rect = Self::get_map_rect(ctx);
         let player_pos = self.gs.world.player_pos();
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
@@ -438,7 +444,27 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
             }
         }
     }
-    ui.gs.tick(dt, moved);
+    for (pos, effect) in ui.gs.tick(dt, moved, &mut ui.rng) {
+        let pos = ui.map_to_screen(pos, Ui::get_map_rect(ctx));
+        match effect {
+            world::Effect::Creak => {
+                ui.effects.push(Effect::Text {
+                    color: RGB::named(DARK_YELLOW),
+                    pos,
+                    text: "*creak*".to_string(),
+                    time_left: 1.0,
+                });
+            }
+            world::Effect::Shuffle => {
+                ui.effects.push(Effect::Text {
+                    color: RGB::named(DARK_YELLOW),
+                    pos,
+                    text: "*shuffle*".to_string(),
+                    time_left: 1.0,
+                });
+            }
+        }
+    }
 }
 
 fn main() {

@@ -436,6 +436,11 @@ impl IntoIterator for Rect {
     }
 }
 
+pub enum Effect {
+    Shuffle,
+    Creak,
+}
+
 impl World {
     fn new(default_chunk: &'static Chunk) -> Self {
         World {
@@ -769,7 +774,7 @@ impl World {
         }
     }
 
-    fn update_mobs(&mut self) {
+    fn update_mobs(&mut self, effects: &mut Vec<(Pos, Effect)>, rng: &mut impl Rng) {
         let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, &self);
         let poses = self.mobs.keys().copied().collect::<Vec<_>>();
         for pos in poses {
@@ -782,7 +787,13 @@ impl World {
                         self[pos].rust = false;
                     }
                     if influence.contains(self.player_pos) {
+                        if mob.saw_player_at.is_none() {
+                            effects.push((pos, Effect::Creak));
+                        }
                         mob.saw_player_at = Some(self.player_pos);
+                    }
+                    if rng.gen::<f32>() < 0.0001 {
+                        effects.push((pos, Effect::Creak));
                     }
                     let new_pos = self
                         .pursue_if_seen_player(&mut mob, pos, true)
@@ -798,6 +809,10 @@ impl World {
                         mob.saw_player_at = Some(self.player_pos);
                     }
 
+                    if rng.gen::<f32>() < 0.0001 {
+                        effects.push((pos, Effect::Shuffle));
+                    }
+
                     self.pursue_if_seen_player(&mut mob, pos, false)
                         .unwrap_or(pos)
                 }
@@ -806,10 +821,12 @@ impl World {
         }
     }
 
-    pub fn tick(&mut self, _dt: f32, player_moved: bool) {
+    pub fn tick(&mut self, _dt: f32, player_moved: bool, rng: &mut impl Rng) -> Vec<(Pos, Effect)> {
+        let mut effects = Vec::new();
         if player_moved {
-            self.update_mobs();
+            self.update_mobs(&mut effects, rng);
         }
+        effects
     }
 
     pub fn player_pos(&self) -> Pos {
@@ -1114,8 +1131,8 @@ impl GameState {
         }
     }
 
-    pub fn tick(&mut self, dt: f32, player_moved: bool) {
-        self.world.tick(dt, player_moved);
+    pub fn tick(&mut self, dt: f32, player_moved: bool, rng: &mut impl Rng) -> Vec<(Pos, Effect)> {
+        let effects = self.world.tick(dt, player_moved, rng);
         if player_moved {
             self.state = match self.state {
                 MissionState::Start => {
@@ -1144,6 +1161,7 @@ impl GameState {
             };
         }
         self.update_memory();
+        effects
     }
 
     fn update_memory(&mut self) {
