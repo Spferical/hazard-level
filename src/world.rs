@@ -58,8 +58,11 @@ pub struct Offset {
 }
 
 impl Offset {
-    pub fn diag_dist(self) -> u64 {
-        self.x.abs().max(self.y.abs()) as u64
+    pub fn diag_dist(self) -> i32 {
+        self.x.abs().max(self.y.abs())
+    }
+    pub fn mhn_dist(self) -> i32 {
+        self.x.abs() + self.y.abs()
     }
 
     pub fn closest_dir(self) -> Self {
@@ -200,12 +203,14 @@ pub enum TileKind {
 #[derive(Enum, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum MobKind {
     Zombie,
+    OldMan,
 }
 
 impl MobKind {
     fn max_health(&self) -> u32 {
         match self {
             Self::Zombie => 2,
+            Self::OldMan => 10,
         }
     }
 }
@@ -276,6 +281,7 @@ pub enum Item {
 pub struct Tile {
     pub kind: TileKind,
     pub blood: bool,
+    pub rust: bool,
     pub item: Option<Item>,
 }
 
@@ -284,16 +290,19 @@ impl Tile {
         Self {
             kind,
             blood: false,
+            rust: false,
             item: None,
         }
     }
 }
 
-#[derive(Hash, Debug, Clone, Copy)]
+#[derive(Hash, Debug, Clone)]
 pub struct Mob {
     pub kind: MobKind,
     pub damage: u32,
     pub saw_player_at: Option<Pos>,
+    pub patrol: Option<Vec<Pos>>,
+    pub patrol_idx: Option<usize>,
 }
 
 impl Mob {
@@ -302,6 +311,8 @@ impl Mob {
             kind,
             damage: 0,
             saw_player_at: None,
+            patrol: None,
+            patrol_idx: None,
         }
     }
 }
@@ -379,6 +390,49 @@ impl Rect {
     }
     pub fn new(x1: i32, x2: i32, y1: i32, y2: i32) -> Self {
         Rect { x1, y1, x2, y2 }
+    }
+    pub fn smol(pos: Pos) -> Self {
+        Self::new(pos.x, pos.x, pos.y, pos.y)
+    }
+    pub fn expand(mut self, amt: i32) -> Self {
+        self.x1 -= amt;
+        self.x2 += amt;
+        self.y1 -= amt;
+        self.y2 += amt;
+        self
+    }
+
+    pub fn contains(&self, pos: Pos) -> bool {
+        pos.x >= self.x1 && pos.x <= self.x2 && pos.y >= self.y1 && pos.y <= self.y2
+    }
+}
+
+pub struct RectIter {
+    rect: Rect,
+    idx: i32,
+}
+
+impl Iterator for RectIter {
+    type Item = Pos;
+    fn next(&mut self) -> std::option::Option<Pos> {
+        let width = self.rect.x2 - self.rect.x1 + 1;
+        let height = self.rect.y2 - self.rect.y1 + 1;
+        if self.idx >= width * height {
+            None
+        } else {
+            let x = self.rect.x1 + (self.idx % width);
+            let y = self.rect.y1 + (self.idx / width);
+            self.idx += 1;
+            Some(Pos { x, y })
+        }
+    }
+}
+
+impl IntoIterator for Rect {
+    type Item = Pos;
+    type IntoIter = RectIter;
+    fn into_iter(self) -> Self::IntoIter {
+        RectIter { rect: self, idx: 0 }
     }
 }
 
@@ -654,43 +708,101 @@ impl World {
         }
     }
 
+    fn move_towards(&mut self, pos: Pos, target: Pos, through_walls: bool) -> Pos {
+        let off = if through_walls {
+            let mut off = (target - pos).norm();
+            if off.x != 0 && off.y != 0 {
+                // meh just bias y like the pathing
+                off.x = 0;
+            }
+            Some(off)
+        } else {
+            self.path(pos, target, FOV_RANGE as usize * 3)
+        };
+        if let Some(off) = off {
+            let new_pos = pos + off;
+            if !self.mobs.contains_key(&new_pos) {
+                new_pos
+            } else {
+                pos
+            }
+        } else {
+            pos
+        }
+    }
+
+    fn pursue_if_seen_player(
+        &mut self,
+        mob: &mut Mob,
+        pos: Pos,
+        through_walls: bool,
+    ) -> Option<Pos> {
+        let never_saw_player_before = mob.saw_player_at.is_none();
+        if !never_saw_player_before {
+            if let Some(target) = mob.saw_player_at {
+                if target == self.player_pos && (target - pos).mhn_dist() <= 1 {
+                    self.player_damage += 1;
+                    Some(pos)
+                } else {
+                    Some(self.move_towards(pos, target, through_walls))
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn patrol(&mut self, mob: &mut Mob, pos: Pos) -> Pos {
+        if let Some(ref patrol) = mob.patrol {
+            let idx = mob.patrol_idx.get_or_insert(0);
+            let mut goal = patrol[*idx];
+            if pos == goal {
+                *idx += 1;
+                *idx %= patrol.len();
+                goal = patrol[*idx];
+            }
+            self.move_towards(pos, goal, true)
+        } else {
+            pos
+        }
+    }
+
     fn update_mobs(&mut self) {
         let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, &self);
         let poses = self.mobs.keys().copied().collect::<Vec<_>>();
         for pos in poses {
             let mut mob = self.mobs.remove(&pos).unwrap();
             let new_pos = match mob.kind {
+                MobKind::OldMan => {
+                    let range = 5;
+                    let influence = Rect::smol(pos).expand(range);
+                    for pos in influence.into_iter() {
+                        self[pos].rust = false;
+                    }
+                    if influence.contains(self.player_pos) {
+                        mob.saw_player_at = Some(self.player_pos);
+                    }
+                    let new_pos = self
+                        .pursue_if_seen_player(&mut mob, pos, true)
+                        .unwrap_or_else(|| self.patrol(&mut mob, pos));
+                    let influence = Rect::smol(new_pos).expand(range);
+                    for new_pos in influence.into_iter() {
+                        self[new_pos].rust = true;
+                    }
+                    new_pos
+                }
                 MobKind::Zombie => {
-                    let never_saw_player_before = mob.saw_player_at.is_none();
                     if seen.contains(&pos) {
                         mob.saw_player_at = Some(self.player_pos);
                     }
-                    if !never_saw_player_before {
-                        if let Some(target) = mob.saw_player_at {
-                            if let Some(off) = self.path(pos, target, FOV_RANGE as usize * 3) {
-                                let new_pos = pos + off;
-                                if self.player_pos == new_pos {
-                                    self.player_damage += 1;
-                                    Some(pos)
-                                } else if !self.mobs.contains_key(&new_pos) {
-                                    Some(new_pos)
-                                } else {
-                                    Some(pos)
-                                }
-                            } else {
-                                Some(pos)
-                            }
-                        } else {
-                            Some(pos)
-                        }
-                    } else {
-                        Some(pos)
-                    }
+
+                    self.pursue_if_seen_player(&mut mob, pos, false)
+                        .unwrap_or(pos)
                 }
             };
-            if let Some(pos) = new_pos {
-                self.mobs.insert(pos, mob);
-            }
+            self.mobs.insert(new_pos, mob);
         }
     }
 
@@ -886,15 +998,23 @@ fn generate_containment(
             world.carve_floor(Pos::new(x2 - room_size, y2), 0, TileKind::Floor);
         }
     }
-    (
-        Pos::new(rect.x2, avg!(rect.y1, rect.y2)),
-        Offset { x: 1, y: 0 },
-    )
+    let exit = Pos::new(rect.x2, avg!(rect.y1, rect.y2));
+
+    let mut man = Mob::new(MobKind::OldMan);
+    man.patrol = Some(vec![
+        Pos::new(rect.x1 + 1, rect.y1 + 1),
+        Pos::new(rect.x1 + 1, rect.y2 - 1),
+        Pos::new(rect.x2 - 1, rect.y2 - 1),
+        Pos::new(rect.x2 - 1, rect.y1 + 1),
+    ]);
+    world.mobs.insert(exit, man);
+
+    (exit, Offset { x: 1, y: 0 })
 }
 
 pub fn generate_world(world: &mut World, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
-    // left ocean
+    // left ocean none beef
     world.fill_rect(Rect::new(-50, 40, -50, 50), TileKind::Ocean);
     world.fill_rect(Rect::new(-10, 10, -10, 10), TileKind::BlackFloor);
     // h for helicopter
@@ -1015,11 +1135,16 @@ impl GameState {
         for pos in seen {
             self.player_memory[pos] = self.world[pos];
             if let Some(mob) = self.world.mobs.get(&pos) {
-                self.player_memory.mobs.insert(pos, *mob);
+                self.player_memory.mobs.insert(pos, mob.clone());
             }
         }
         if self.debug_mode {
-            self.player_memory.mobs.extend(&self.world.mobs);
+            self.player_memory.mobs.extend(
+                self.world
+                    .mobs
+                    .iter()
+                    .map(|(pos, mob)| (pos.clone(), mob.clone())),
+            );
         }
     }
 }

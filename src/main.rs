@@ -25,6 +25,7 @@ const LIGHT_RED: NamedColor = (0xe5, 0x78, 0x6d);
 const DARK_BLUE: NamedColor = (0x33, 0x63, 0xa1);
 const LIGHT_BLUE: NamedColor = (0x77, 0xa7, 0xe5);
 const LIGHT_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
+const LIGHT_PURPLE: NamedColor = (0xf8, 0x54, 0xf8);
 
 impl From<world::Pos> for Point {
     fn from(pos: world::Pos) -> Self {
@@ -110,6 +111,7 @@ struct MobPrintable {
 fn get_mob_printable(kind: MobKind, visible: bool) -> MobPrintable {
     let (symbol, fg) = match (kind, visible) {
         (MobKind::Zombie, _) => ("@", DARK_YELLOW),
+        (MobKind::OldMan, _) => ("@", LIGHT_PURPLE),
     };
     MobPrintable {
         symbol,
@@ -281,6 +283,9 @@ impl Ui {
                 let mut printable = get_printable(world[map_pos].kind, visible);
                 if world[map_pos].blood {
                     printable.fg = RGB::named(DARK_RED);
+                }
+                if world[map_pos].rust {
+                    printable.fg = RGB::named(DARK_YELLOW);
                 }
                 if let Some(item) = world[map_pos].item {
                     let MobPrintable { fg, symbol } = get_item_printable(item, visible);
