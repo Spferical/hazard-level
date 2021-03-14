@@ -353,7 +353,7 @@ impl Ui {
             "@",
         );
 
-        if seen.contains(&self.gs.world.thing.pos) {
+        if seen.contains(&self.gs.world.thing.pos) || self.gs.debug_mode {
             let bg = RGB::named(DARK_BLACK);
             let fg = RGB::named(LIGHT_WHITE);
             let screen_pos = self.map_to_screen(self.gs.world.thing.pos, screen_rect);
