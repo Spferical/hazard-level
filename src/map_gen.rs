@@ -9,7 +9,7 @@ use imageproc;
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
 
-pub const SEGMENTS: Vec<&[u8]> = vec![
+pub const SEGMENTS: &[&[u8]] = &[
     include_bytes!("../static/0.ppm"),
     include_bytes!("../static/0.ppm"), // make more stuff
     include_bytes!("../static/0.ppm"),
