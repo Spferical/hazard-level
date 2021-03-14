@@ -556,7 +556,7 @@ impl World {
         around_mobs: bool,
         range: Option<usize>,
     ) -> Pos {
-        let range = range.unwrap_or(FOV_RANGE as usize * 3);
+        let range = range.unwrap_or(FOV_RANGE as usize);
         let off = self.path(pos, target, range, through_walls, around_mobs);
         if let Some(off) = off {
             let new_pos = pos + off;

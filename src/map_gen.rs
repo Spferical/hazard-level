@@ -14,6 +14,8 @@ pub const SEGMENTS: &[(&[u8], (u32, u32))] = &[
     (include_bytes!("../static/0.png"), (10, 10)),
     (include_bytes!("../static/1.png"), (16, 16)), // make more stuff
     (include_bytes!("../static/cells.png"), (20, 20)),
+    (include_bytes!("../static/maze.png"), (12, 12)),
+    (include_bytes!("../static/shelves.png"), (20, 20)),
 ];
 
 macro_rules! avg {
