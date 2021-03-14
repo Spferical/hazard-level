@@ -599,14 +599,34 @@ pub fn generate_world(world: &mut World, seed: u64) {
         }
     }
 
+    fn sort_rooms(room1: Rect, room2: Rect) -> (Rect, Rect) {
+        let mut arr = [room1, room2];
+        arr.sort_by_key(|r| (r.x1, r.y1));
+        (arr[0], arr[1])
+    }
+
+    // decide on specific tile to be the entrance between each room pair
+    let mut rooms_to_door = HashMap::new();
+    for room1 in room_graph.iter() {
+        for &room2 in room_graph.get_adj(room1).unwrap() {
+            let (room1, room2) = sort_rooms(room1, room2);
+            if !rooms_to_door.contains_key(&(room1, room2)) {
+                let wall = get_connecting_wall(room1, room2).unwrap();
+                let door = wall.choose(&mut rng);
+                rooms_to_door.insert((room1, room2), door);
+            }
+        }
+    }
+
     // finally, gen the intermediate rooms
     for room in room_graph.iter() {
         let adjs = room_graph.get_adj(room).unwrap();
         // carve_room(world, room, adjs, &mut rng, TileKind::Floor);
         let entrances = adjs
             .into_iter()
-            .map(|adj| get_connecting_wall(room, *adj).unwrap())
-            .map(|r| r.choose(&mut rng))
+            .copied()
+            .map(|adj| rooms_to_door.get(&sort_rooms(room, adj)).unwrap())
+            .copied()
             .collect::<Vec<_>>();
         gen_offices(world, &mut rng, &entrances, room);
         for entrance in entrances {
