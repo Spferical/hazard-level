@@ -64,6 +64,17 @@ struct Ui {
     rng: SmallRng,
 }
 
+impl Ui {
+    fn add_text_effect_1s<T: ToString>(&mut self, pos: Pos, text: T, color: RGB) {
+        self.effects.push(Effect::Text {
+            pos,
+            text: text.to_string(),
+            color,
+            time_left: 1.0,
+        })
+    }
+}
+
 impl GameState for Ui {
     fn tick(&mut self, ctx: &mut BTerm) {
         player_input(self, ctx);
@@ -114,6 +125,7 @@ fn get_mob_printable(kind: MobKind, visible: bool) -> MobPrintable {
         (MobKind::Zombie, _) => ("@", DARK_YELLOW),
         (MobKind::OldMan, _) => ("@", LIGHT_PURPLE),
         (MobKind::Alien, _) => (",", LIGHT_YELLOW),
+        (MobKind::Sculpture, _) => ("&", DARK_YELLOW),
     };
     MobPrintable {
         symbol,
@@ -460,28 +472,16 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
         let pos = ui.map_to_screen(pos, Ui::get_map_rect(ctx));
         match effect {
             world::Effect::Creak => {
-                ui.effects.push(Effect::Text {
-                    color: RGB::named(DARK_RED),
-                    pos,
-                    text: "*creak*".to_string(),
-                    time_left: 1.0,
-                });
+                ui.add_text_effect_1s(pos, "*creak*", RGB::named(DARK_RED));
             }
             world::Effect::Shuffle => {
-                ui.effects.push(Effect::Text {
-                    color: RGB::named(DARK_YELLOW),
-                    pos,
-                    text: "*shuffle*".to_string(),
-                    time_left: 1.0,
-                });
+                ui.add_text_effect_1s(pos, "*shuffle*", RGB::named(DARK_YELLOW));
             }
             world::Effect::Hiss => {
-                ui.effects.push(Effect::Text {
-                    color: RGB::named(DARK_GREEN),
-                    pos,
-                    text: "*hiss*".to_string(),
-                    time_left: 1.0,
-                });
+                ui.add_text_effect_1s(pos, "*hiss*", RGB::named(DARK_GREEN));
+            }
+            world::Effect::Scrape => {
+                ui.add_text_effect_1s(pos, "*scrape*", RGB::named(DARK_RED));
             }
         }
     }

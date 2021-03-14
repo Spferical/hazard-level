@@ -199,6 +199,7 @@ pub enum MobKind {
     Zombie,
     Alien,
     OldMan,
+    Sculpture,
 }
 
 impl MobKind {
@@ -207,6 +208,7 @@ impl MobKind {
             Self::Zombie => 2,
             Self::OldMan => 10,
             Self::Alien => 1,
+            Self::Sculpture => 99,
         }
     }
 }
@@ -429,6 +431,7 @@ pub enum Effect {
     Shuffle,
     Creak,
     Hiss,
+    Scrape,
 }
 
 impl World {
@@ -569,6 +572,26 @@ impl World {
         for pos in poses {
             let mut mob = self.mobs.remove(&pos).unwrap();
             let new_pos = match mob.kind {
+                MobKind::Sculpture => {
+                    let mut new_pos = pos;
+                    if seen.contains(&pos) {
+                        mob.saw_player_at = Some(self.player_pos);
+                    } else {
+                        for _ in 0..5 {
+                            let next_pos = self
+                                .pursue_if_seen_player(&mut mob, new_pos, false, true)
+                                .unwrap_or_else(|| self.patrol(&mut mob, new_pos));
+                            if seen.contains(&next_pos) {
+                                break;
+                            }
+                            new_pos = next_pos;
+                            if rng.gen::<f32>() < 0.01 {
+                                effects.push((new_pos, Effect::Scrape));
+                            }
+                        }
+                    }
+                    new_pos
+                }
                 MobKind::OldMan => {
                     let range = 5;
                     let influence = Rect::smol(pos).expand(range);
@@ -766,7 +789,7 @@ impl GameState {
                         if seconds_left != 0 {
                             seconds_left -= 1;
                             if seconds_left == 0 {
-                                let player_pos = self.world.player_pos.clone();
+                                let player_pos = self.world.player_pos;
                                 map_gen::carve_floor(
                                     &mut self.world,
                                     player_pos,
