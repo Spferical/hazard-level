@@ -9,6 +9,7 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use rand::SeedableRng;
 use std::collections::HashSet;
+use textwrap;
 
 mod fov;
 #[macro_use]
@@ -385,6 +386,17 @@ impl Ui {
         }
     }
 
+    fn print_rect(&mut self, ctx: &mut BTerm, rect: Rect, texts: &[String], color: RGB, y_off: i32) {
+        let mut y = rect.y + y_off;
+        for text in texts {
+            if y >= rect.y + rect.h {
+                break;
+            }
+            ctx.print_color(rect.x, y, color, RGB::named(DARK_BLACK), text);
+            y += 1;
+        }
+    }
+
     fn print_multi(&mut self, ctx: &mut BTerm, mut x: i32, y: i32, texts: &[(String, RGB)]) {
         for (text, color) in texts {
             ctx.print_color(x, y, *color, RGB::named(DARK_BLACK), text);
@@ -487,6 +499,21 @@ impl Ui {
             format!("{:width$}", "MEMORY", width = DESCRIPTION_WIDTH as usize),
         );
 
+        let desc_wrap = |txt| {
+            textwrap::wrap(txt, DESCRIPTION_WIDTH as usize)
+                .iter()
+                .map(|txt| String::from(txt.clone()))
+                .collect::<Vec<_>>()
+        };
+
+        self.print_rect(
+            ctx,
+            memory_rect,
+            &desc_wrap(&self.gs.get_mob_text()),
+            RGB::named(LIGHT_WHITE),
+            1
+        );
+
         ctx.print_color(
             sensing_rect.x,
             sensing_rect.y,
@@ -504,11 +531,7 @@ impl Ui {
             announcement_rect.y,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_RED),
-            format!(
-                "{:width$}",
-                "INTERCOM",
-                width = DESCRIPTION_WIDTH as usize
-            ),
+            format!("{:width$}", "INTERCOM", width = DESCRIPTION_WIDTH as usize),
         );
 
         ctx.print_color_centered(

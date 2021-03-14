@@ -815,6 +815,10 @@ pub struct GameState {
     pub player_memory: World,
     pub debug_mode: bool,
     pub state: MissionState,
+
+    pub most_recent_mob: Option<MobKind>,
+    pub sensing: Vec<String>,
+    pub announcements: Vec<String>,
 }
 
 impl GameState {
@@ -824,11 +828,19 @@ impl GameState {
             player_memory: World::new(&UNSEEN_CHUNK),
             debug_mode: false,
             state: MissionState::Start,
+
+            most_recent_mob: None,
+            sensing: Vec::new(),
+            announcements: Vec::new()
         }
     }
 
     pub fn player_is_dead(&self) -> bool {
         self.world.player_damage >= PLAYER_MAX_HEALTH && !self.debug_mode
+    }
+
+    pub fn get_mob_text(&self) -> String {
+        return String::from("mob text placeholder");
     }
 
     pub fn generate_world(&mut self, seed: u64) {
