@@ -9,11 +9,11 @@ use image;
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
 
-pub const SEGMENTS: &[&[u8]] = &[
-    include_bytes!("../static/0.ppm"),
-    include_bytes!("../static/0.ppm"), // make more stuff
-    include_bytes!("../static/0.ppm"),
-    include_bytes!("../static/0.ppm"),
+pub const SEGMENTS: &[(&[u8], (u32, u32))] = &[
+    (include_bytes!("../static/0.png"), (10, 10)),
+    (include_bytes!("../static/1.png"), (18, 18)), // make more stuff
+    (include_bytes!("../static/0.png"), (10, 10)),
+    (include_bytes!("../static/1.png"), (10, 10)),
 ];
 
 macro_rules! avg {
@@ -536,6 +536,15 @@ fn generate_containment(
     (exit, Offset { x: 1, y: 0 })
 }
 
+pub fn sample_until_valid(segment_shape: (u32, u32), rng: &mut impl Rng) -> usize {
+    loop {
+        let id = rng.gen_range(0..SEGMENTS.len());
+        if (SEGMENTS[id].1).0 < segment_shape.0 || (SEGMENTS[id].1).1 < segment_shape.1 {
+            return id;
+        }
+    }
+}
+
 pub fn generate_world(world: &mut World, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
     // left ocean none beef
@@ -556,8 +565,8 @@ pub fn generate_world(world: &mut World, seed: u64) {
     fill_rect(world, world_rect, TileKind::Wall);
     let world_rect = world_rect.expand(-1);
     let bsp_opts = BspSplitOpts {
-        max_width: 30,
-        max_height: 30,
+        max_width: 36,
+        max_height: 36,
         min_width: 10,
         min_height: 10,
     };
@@ -594,8 +603,9 @@ pub fn generate_world(world: &mut World, seed: u64) {
         }
     }
 
+    // Spferical's old map gen
     // finally, gen the intermediate rooms
-    for room in room_graph.iter() {
+    /*for room in room_graph.iter() {
         let adjs = room_graph.get_adj(room).unwrap();
         // carve_room(world, room, adjs, &mut rng, TileKind::Floor);
         let entrances = adjs
@@ -606,6 +616,42 @@ pub fn generate_world(world: &mut World, seed: u64) {
         gen_offices(world, &mut rng, &entrances, room);
         for entrance in entrances {
             carve_floor(world, entrance, 0, TileKind::Floor);
+        }
+    }*/
+
+    // Animated's new map gen
+    let mut rooms_to_nexuses = HashMap::new();
+    for segment in room_graph.iter() {
+        let sample_id = sample_until_valid(
+            (
+                (segment.y2 - segment.y1) as u32,
+                (segment.x2 - segment.x1) as u32,
+            ),
+            &mut rng,
+        );
+
+        // carve out a given segment, and get the doors on it
+        // TODO: Also add mobs to these areas
+        let nexuses = carve_segment(world, sample_id, segment, TileKind::BlackFloor, &mut rng);
+
+        rooms_to_nexuses.insert(segment, nexuses);
+    }
+    for segment in room_graph.iter() {
+        // get slice of adjacent rooms to a given room
+        let adjs = room_graph.get_adj(segment).unwrap();
+
+        // connect all adjacent rooms
+        for adj_segment in adjs {
+            // TODO: We shouldn't need this check!
+            if rooms_to_nexuses.contains_key(&adj_segment) {
+                carve_corridor(
+                    world,
+                    segment,
+                    *adj_segment,
+                    &rooms_to_nexuses[&segment],
+                    &rooms_to_nexuses[adj_segment],
+                )
+            }
         }
     }
 
@@ -639,40 +685,17 @@ pub fn carve_floor(world: &mut World, pos: Pos, brush_size: u8, tile: TileKind) 
     }
 }
 
-pub fn gen_lab_complex(world: &mut World, rng: &mut impl Rng, left_entrance: Pos, rect: Rect) {
-    fill_rect(world, rect, TileKind::Wall);
-    carve_floor(world, left_entrance, 1, TileKind::Floor);
-    let bsp_opts = BspSplitOpts {
-        max_width: 100,
-        max_height: 100,
-        min_width: 20,
-        min_height: 20,
-    };
-
-    let tree = gen_bsp_tree(rect, bsp_opts, rng);
-    let room_graph = tree.into_room_graph();
-
-    // todo: add non-tree connections
-    // maybe add them as optional connections for the segment carver
-
-    /*
-    for (room, adj_rooms) in rooms_with_adj {
-        carve_segment(world, 0, room, TileKind::Floor, rng);
-    }
-    */
-}
-
 pub fn carve_segment(
     world: &mut World,
     segment_id: usize,
     segment_dimensions: Rect,
     floor_type: TileKind,
     rng: &mut impl Rng,
-) {
-    let img_bytes = SEGMENTS[segment_id];
+) -> Vec<Pos> {
+    let (img_bytes, _) = SEGMENTS[segment_id];
     let img = image::io::Reader::new(Cursor::new(img_bytes))
         .with_guessed_format()
-        .expect("unable to read ppm file in memory??")
+        .expect("unable to read png file in memory??")
         .decode()
         .unwrap();
 
@@ -692,7 +715,7 @@ pub fn carve_segment(
         &img,
         room_width,
         room_height,
-        image::imageops::FilterType::Lanczos3,
+        image::imageops::FilterType::Nearest,
     );
 
     let mut nexuses: Vec<Pos> = Vec::new();
@@ -702,9 +725,14 @@ pub fn carve_segment(
         let alpha = pixel[0];
         let nexus = pixel[1];
 
-        let pos = Pos::new(x as i32, y as i32);
+        let pos = Pos::new(x as i32, y as i32)
+            + Offset {
+                x: segment_dimensions.x1,
+                y: segment_dimensions.y1,
+            };
 
-        if nexus > 0 {
+        if nexus > 0 && alpha == 0 {
+            world[pos].kind = floor_type;
             nexuses.push(pos);
         } else {
             // alpha is 0 if it is a wall, 255 if it is empty
@@ -712,6 +740,126 @@ pub fn carve_segment(
                 // we carve it out
                 world[pos].kind = floor_type;
             }
+        }
+    }
+
+    nexuses
+}
+
+pub fn carve_corridor(
+    world: &mut World,
+    segment_a: Rect,
+    segment_b: Rect,
+    a_doors: &Vec<Pos>,
+    b_doors: &Vec<Pos>,
+) {
+    let connecting_wall = get_connecting_wall(segment_a, segment_b).unwrap();
+    /*carve_line(
+        world,
+        Pos::new(connecting_wall.x1, connecting_wall.y1),
+        Pos::new(connecting_wall.x2, connecting_wall.y2),
+        1,
+        TileKind::BlackFloor,
+    );*/
+
+    // Wall must be 1-thick
+    assert!(connecting_wall.x1 == connecting_wall.x2 || connecting_wall.y1 == connecting_wall.y2);
+
+    // (is connecting wall vertical/horizontal, what coord is it)
+    let (vertical, dividing_dim_val) = if connecting_wall.x1 == connecting_wall.x2 {
+        (true, connecting_wall.x1)
+    } else {
+        (false, connecting_wall.y1)
+    };
+
+    // distance from door to wall
+    let dist_to_wall = |p: Pos| {
+        if vertical {
+            (p.x - dividing_dim_val).abs()
+        } else {
+            (p.y - dividing_dim_val).abs()
+        }
+    };
+
+    let get_ideal_doors = |all_doors: &Vec<_>| {
+        // min of of (dist to closest wall)
+        // is there always such a door?
+        let min_dist = all_doors
+            .iter()
+            .map(|&a_pos| dist_to_wall(a_pos))
+            .min()
+            .unwrap();
+        let doors_to_connect: Vec<_> = a_doors
+            .iter()
+            .filter(|&door| dist_to_wall(*door) == min_dist)
+            .collect();
+
+        doors_to_connect
+    };
+
+    // so here's the doors that are likely on the same corridor
+    let a_ideal_doors = get_ideal_doors(a_doors);
+    let b_ideal_doors = get_ideal_doors(b_doors);
+
+    let mut all_ideal_doors: Vec<Pos> = Vec::new();
+    all_ideal_doors.extend(a_ideal_doors);
+    all_ideal_doors.extend(b_ideal_doors);
+
+    // now we carve little passages from the door to the corridors
+    for ideal_door in all_ideal_doors.iter() {
+        let inner_corridor_range = if vertical {
+            ideal_door.x..dividing_dim_val
+        } else {
+            ideal_door.y..dividing_dim_val
+        };
+        for v in inner_corridor_range {
+            let p = if vertical {
+                Pos::new(v, ideal_door.y)
+            } else {
+                Pos::new(ideal_door.x, v)
+            };
+
+            world[p].kind = TileKind::BlackFloor;
+        }
+    }
+
+    // Now let's get the endpoints of the corridor
+    // TODO: need to clean this up
+    let corridor_start = if vertical {
+        Pos::new(
+            dividing_dim_val,
+            all_ideal_doors.iter().map(|d| d.y).min().unwrap(),
+        )
+    } else {
+        Pos::new(
+            all_ideal_doors.iter().map(|d| d.x).min().unwrap(),
+            dividing_dim_val,
+        )
+    };
+
+    let corridor_end = if vertical {
+        Pos::new(
+            dividing_dim_val,
+            all_ideal_doors.iter().map(|d| d.y).max().unwrap(),
+        )
+    } else {
+        Pos::new(
+            all_ideal_doors.iter().map(|d| d.x).max().unwrap(),
+            dividing_dim_val,
+        )
+    };
+
+    // Carve out the corridor
+    // TODO: again I feel like this can be written a lot more simply
+    if vertical {
+        for v in corridor_start.y..corridor_end.y + 1 {
+            let p = Pos::new(dividing_dim_val, v);
+            world[p].kind = TileKind::BlackFloor;
+        }
+    } else {
+        for v in corridor_start.x..corridor_end.x + 1 {
+            let p = Pos::new(v, dividing_dim_val);
+            world[p].kind = TileKind::BlackFloor;
         }
     }
 }
