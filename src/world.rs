@@ -2,7 +2,6 @@ use enum_map::{enum_map, Enum, EnumMap};
 use indexmap::map::IndexMap;
 use lazy_static::lazy_static;
 use rand::Rng;
-use rand::{seq::SliceRandom, SeedableRng};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::f64::consts::PI;
@@ -479,10 +478,6 @@ impl World {
         } else {
             false
         }
-    }
-
-    pub fn num_chunks(&self) -> usize {
-        self.chunks.len()
     }
 
     fn damage_mob(&mut self, pos: Pos) {

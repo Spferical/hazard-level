@@ -6,7 +6,6 @@ use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
 
 use image;
-use imageproc;
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
 
@@ -164,7 +163,6 @@ pub enum BspTree {
 
 impl BspTree {
     fn into_room_graph(self) -> RoomGraph {
-        let graph = RoomGraph::new();
         match self {
             BspTree::Room(rect) => {
                 let mut graph = RoomGraph::new();
@@ -173,7 +171,7 @@ impl BspTree {
             }
             BspTree::Split(tree1, tree2) => {
                 let mut rooms1 = tree1.into_room_graph();
-                let mut rooms2 = tree2.into_room_graph();
+                let rooms2 = tree2.into_room_graph();
                 // now figure out how to bridge the trees
                 rooms1.extend_bridged(rooms2);
                 rooms1
@@ -207,10 +205,10 @@ impl RoomGraph {
             .unwrap_or(false)
     }
     fn remove_room(&mut self, rect: Rect) {
-        self.room_adj.retain(|r, v| *r != rect);
+        self.room_adj.retain(|r, _| *r != rect);
     }
     fn find_spatially_adjacent(&self, rect: Rect) -> Option<Rect> {
-        for (room, ref adjs) in &self.room_adj {
+        for (room, _adjs) in &self.room_adj {
             if let Some(_wall) = get_connecting_wall(rect, *room) {
                 return Some(*room);
             }
