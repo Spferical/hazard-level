@@ -1,3 +1,4 @@
+use crate::world::CARDINALS;
 use std::collections::HashMap;
 use std::io::Cursor;
 
@@ -309,14 +310,18 @@ pub fn carve_line_drunk(
     rng: &mut impl Rng,
     waviness: f64,
     tile: TileKind,
+    bound: Rect,
 ) {
     let mut pos = start;
     while pos != end {
         let dir = if rng.gen::<f64>() < waviness {
-            *DIRECTIONS.choose(rng).unwrap()
+            *CARDINALS.choose(rng).unwrap()
         } else {
             (end - pos).closest_dir()
         };
+        if !bound.contains(pos + dir) {
+            continue;
+        }
         pos += dir;
         carve_floor(world, pos, brush_size, tile);
     }
@@ -361,6 +366,49 @@ pub fn fill_rect(world: &mut World, rect: Rect, kind: TileKind) {
         for y in rect.y1..=rect.y2 {
             let pos = Pos { x, y };
             world[pos].kind = kind;
+        }
+    }
+}
+
+fn gen_alien_nest(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: Rect) {
+    // draw a bunch of lines between the entrances
+    let mut interior_entrances = Vec::new();
+    for &e in entrances {
+        for &o in &CARDINALS {
+            if rect.contains(e + o) {
+                interior_entrances.push(e + o);
+            }
+        }
+    }
+    fill_rect(world, rect, TileKind::YellowWall);
+    // draw lines between interior entrances
+    for &e1 in &interior_entrances {
+        for &e2 in interior_entrances.iter().chain(&[rect.center()]) {
+            carve_line_drunk(world, e1, e2, 0, rng, 0.5, TileKind::YellowFloor, rect);
+        }
+    }
+    // spawn some enemies
+    let size = rect.width() * rect.height();
+    for _ in 0..(size / 20).max(1) {
+        loop {
+            let pos = rect.choose(rng);
+            if !world[pos].kind.is_walkable() {
+                continue;
+            }
+            let kind = MobKind::Alien;
+            world.mobs.insert(pos, Mob::new(kind));
+            break;
+        }
+    }
+
+    // spawn some ammo
+    for _ in 0..(size / 70).max(1) {
+        loop {
+            let pos = rect.choose(rng);
+            if world[pos].kind.is_walkable() && world[pos].item.is_none() {
+                world[pos].item = Some(Item::Ammo);
+                break;
+            }
         }
     }
 }
@@ -628,7 +676,12 @@ pub fn generate_world(world: &mut World, seed: u64) {
             .map(|adj| rooms_to_door.get(&sort_rooms(room, adj)).unwrap())
             .copied()
             .collect::<Vec<_>>();
-        gen_offices(world, &mut rng, &entrances, room);
+        let rand = rng.gen::<f32>();
+        if rand <= 0.8 {
+            gen_offices(world, &mut rng, &entrances, room);
+        } else {
+            gen_alien_nest(world, &mut rng, &entrances, room);
+        }
         for entrance in entrances {
             carve_floor(world, entrance, 0, TileKind::Floor);
         }

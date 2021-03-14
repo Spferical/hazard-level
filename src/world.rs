@@ -186,6 +186,7 @@ pub enum TileKind {
     Ocean,
     BlackFloor,
     YellowFloor,
+    YellowWall,
     BloodyFloor,
     Computer,
     Fire,
@@ -224,6 +225,10 @@ lazy_static! {
             walkable: true,
         },
         TileKind::Wall => TileKindInfo {
+            opaque: true,
+            walkable: false,
+        },
+        TileKind::YellowWall => TileKindInfo {
             opaque: true,
             walkable: false,
         },
