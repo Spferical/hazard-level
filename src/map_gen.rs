@@ -393,6 +393,8 @@ fn generate_containment(
     ]);
     world.mobs.insert(exit, man);
 
+    world.thing.pos = exit + Offset { x: -1, y: 0 };
+
     // spawn some enemies
     for _ in 0..10 {
         let room = rooms.choose(rng).unwrap();

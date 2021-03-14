@@ -336,6 +336,11 @@ impl Ui {
             bg,
             "@",
         );
+
+        let bg = RGB::named(DARK_BLACK);
+        let fg = RGB::named(LIGHT_WHITE);
+        let screen_pos = self.map_to_screen(self.gs.world.thing.pos, screen_rect);
+        ctx.print_color(screen_pos.x, screen_pos.y, fg, bg, "T");
     }
 
     fn print_multi(&mut self, ctx: &mut BTerm, mut x: i32, y: i32, texts: &[(String, RGB)]) {
@@ -423,7 +428,7 @@ impl Ui {
 
 fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     use VirtualKeyCode::*;
-    let dt = ctx.frame_time_ms;
+    let dt = ctx.frame_time_ms / 1000.0;
     if ctx.key.is_some() && ui.gs.player_is_dead() {
         ui.random_text_effect(ctx, "DEAD".to_string(), 1f32, RGB::named(DARK_RED));
         return;

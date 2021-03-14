@@ -331,6 +331,12 @@ const UNSEEN_CHUNK: Chunk = Chunk {
 };
 
 #[derive(Debug, Clone)]
+pub struct Thing {
+    pub pos: Pos,
+    elapsed: f32,
+}
+
+#[derive(Debug, Clone)]
 pub struct World {
     chunks: IndexMap<ChunkIndex, Chunk>,
     default_chunk: &'static Chunk,
@@ -338,6 +344,7 @@ pub struct World {
     player_pos: Pos,
     player_damage: i32,
     pub player_ammo: u32,
+    pub thing: Thing,
 }
 
 impl Index<Pos> for World {
@@ -443,6 +450,11 @@ impl World {
             player_pos: Pos { x: 0, y: 0 },
             player_damage: 0,
             player_ammo: 32,
+            thing: Thing {
+                // TODO
+                pos: Pos { x: -20, y: 0 },
+                elapsed: 0.0,
+            },
         }
     }
 
@@ -465,7 +477,6 @@ impl World {
         let mob = self.mobs.get_mut(&pos).unwrap();
         mob.damage += 1;
         if mob.damage >= mob.kind.max_health() {
-            drop(mob);
             self.mobs.remove(&pos);
             if self[pos].item.is_none() {
                 self[pos].item = Some(Item::Corpse);
@@ -504,7 +515,9 @@ impl World {
         target: Pos,
         through_walls: bool,
         around_mobs: bool,
+        range: Option<usize>,
     ) -> Pos {
+        let range = range.unwrap_or(FOV_RANGE as usize * 3);
         let off = if through_walls {
             let mut off = (target - pos).norm();
             if off.x != 0 && off.y != 0 {
@@ -513,7 +526,7 @@ impl World {
             }
             Some(off)
         } else {
-            self.path(pos, target, FOV_RANGE as usize * 3, around_mobs)
+            self.path(pos, target, range, around_mobs)
         };
         if let Some(off) = off {
             let new_pos = pos + off;
@@ -534,14 +547,18 @@ impl World {
         through_walls: bool,
         around_mobs: bool,
     ) -> Option<Pos> {
-        let never_saw_player_before = mob.saw_player_at.is_none();
-        if !never_saw_player_before {
+        let already_pursuing_player = mob.saw_player_at.is_some();
+        if already_pursuing_player {
             if let Some(target) = mob.saw_player_at {
                 if target == self.player_pos && (target - pos).mhn_dist() <= 1 {
                     self.player_damage += 1;
                     Some(pos)
                 } else {
-                    Some(self.move_towards(pos, target, through_walls, around_mobs))
+                    let pos = self.move_towards(pos, target, through_walls, around_mobs, None);
+                    if pos == target {
+                        mob.saw_player_at = None;
+                    }
+                    Some(pos)
                 }
             } else {
                 None
@@ -560,9 +577,26 @@ impl World {
                 *idx %= patrol.len();
                 goal = patrol[*idx];
             }
-            self.move_towards(pos, goal, true, true)
+            self.move_towards(pos, goal, true, true, None)
         } else {
             pos
+        }
+    }
+
+    fn update_thing(&mut self, dt: f32, _effects: &mut Vec<(Pos, Effect)>, _rng: &mut impl Rng) {
+        let old_elapsed = self.thing.elapsed;
+        self.thing.elapsed += dt;
+        let thing_dist = |x: f32| (x * 2f32.powf(x / 100.0)) as i32;
+        let player_dist = (self.thing.pos - self.player_pos).mhn_dist() as usize * 4;
+        for _ in thing_dist(old_elapsed)..thing_dist(self.thing.elapsed) {
+            let new_pos = self.move_towards(
+                self.thing.pos,
+                self.player_pos,
+                false,
+                true,
+                Some(player_dist),
+            );
+            self.thing.pos = new_pos;
         }
     }
 
@@ -581,7 +615,7 @@ impl World {
                             let next_pos = self
                                 .pursue_if_seen_player(&mut mob, new_pos, false, true)
                                 .unwrap_or_else(|| self.patrol(&mut mob, new_pos));
-                            if seen.contains(&next_pos) {
+                            if seen.contains(&next_pos) || next_pos == new_pos {
                                 break;
                             }
                             new_pos = next_pos;
@@ -657,11 +691,12 @@ impl World {
         }
     }
 
-    pub fn tick(&mut self, _dt: f32, player_moved: bool, rng: &mut impl Rng) -> Vec<(Pos, Effect)> {
+    pub fn tick(&mut self, dt: f32, player_moved: bool, rng: &mut impl Rng) -> Vec<(Pos, Effect)> {
         let mut effects = Vec::new();
         if player_moved {
             self.update_mobs(&mut effects, rng);
         }
+        self.update_thing(dt, &mut effects, rng);
         effects
     }
 
