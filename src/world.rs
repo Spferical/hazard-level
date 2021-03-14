@@ -61,7 +61,7 @@ impl Offset {
     pub fn closest_dir(self) -> Self {
         let angle = (self.y as f64).atan2(self.x as f64);
         let octant = (8f64 * angle / (2f64 * PI) + 8f64) as usize % 8;
-        DIRECTIONS[octant]
+        DIRECTIONS[octant / 2]
     }
 
     pub fn norm(self) -> Self {

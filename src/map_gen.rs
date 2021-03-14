@@ -688,7 +688,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
 
         if rand <= 0.4 {
             gen_offices(world, &mut rng, &entrances, room);
-        } else if rand <= 0.9 {
+        } else if rand <= 0.95 {
             gen_prefabs(world, room, &entrances, &mut rng);
         } else {
             gen_alien_nest(world, &mut rng, &entrances, room);
