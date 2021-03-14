@@ -580,6 +580,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
     room_graph.remove_room(final_room);
     fill_rect(world, final_room, TileKind::BloodyFloor);
     carve_floor(world, final_room.center(), 0, TileKind::Computer);
+    world.thing.pos = final_room.center() + Offset { x: 1, y: 1 };
 
     // add some loops to the rooms
     let loopiness = 1.0;
