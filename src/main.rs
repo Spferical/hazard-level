@@ -386,7 +386,14 @@ impl Ui {
         }
     }
 
-    fn print_rect(&mut self, ctx: &mut BTerm, rect: Rect, texts: &[String], color: RGB, y_off: i32) {
+    fn print_rect(
+        &mut self,
+        ctx: &mut BTerm,
+        rect: Rect,
+        texts: &[String],
+        color: RGB,
+        y_off: i32,
+    ) {
         let mut y = rect.y + y_off;
         for text in texts {
             if y >= rect.y + rect.h {
@@ -499,19 +506,20 @@ impl Ui {
             format!("{:width$}", "MEMORY", width = DESCRIPTION_WIDTH as usize),
         );
 
-        let desc_wrap = |txt| {
+        fn desc_wrap(txt: &str) -> Vec<String> {
             textwrap::wrap(txt, DESCRIPTION_WIDTH as usize)
                 .iter()
                 .map(|txt| String::from(txt.clone()))
                 .collect::<Vec<_>>()
         };
 
+        let mob_text = self.gs.get_mob_text();
         self.print_rect(
             ctx,
             memory_rect,
-            &desc_wrap(&self.gs.get_mob_text()),
+            &desc_wrap(&mob_text),
             RGB::named(LIGHT_WHITE),
-            1
+            1,
         );
 
         ctx.print_color(
@@ -526,12 +534,44 @@ impl Ui {
             ),
         );
 
+        let memory_messages = self
+            .gs
+            .sensing
+            .iter()
+            .map(|s| desc_wrap(&s))
+            .flatten()
+            .map(|s| s.clone())
+            .collect::<Vec<_>>();
+        self.print_rect(
+            ctx,
+            memory_rect,
+            &memory_messages,
+            RGB::named(LIGHT_WHITE),
+            1,
+        );
+
         ctx.print_color(
             announcement_rect.x,
             announcement_rect.y,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_RED),
             format!("{:width$}", "INTERCOM", width = DESCRIPTION_WIDTH as usize),
+        );
+
+        let announcement_messages = self
+            .gs
+            .announcements
+            .iter()
+            .map(|s| desc_wrap(&s))
+            .flatten()
+            .map(|s| s.clone())
+            .collect::<Vec<_>>();
+        self.print_rect(
+            ctx,
+            announcement_rect,
+            &announcement_messages,
+            RGB::named(LIGHT_WHITE),
+            1,
         );
 
         ctx.print_color_centered(
