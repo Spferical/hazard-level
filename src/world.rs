@@ -372,7 +372,7 @@ impl IndexMut<Pos> for World {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Rect {
     pub x1: i32,
     pub y1: i32,
@@ -381,6 +381,12 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn width(&self) -> i32 {
+        self.x2 - self.x1
+    }
+    pub fn height(&self) -> i32 {
+        self.y2 - self.y1
+    }
     pub fn choose(&self, rng: &mut impl Rng) -> Pos {
         let x = rng.gen_range(self.x1..=self.x2);
         let y = rng.gen_range(self.y1..=self.y2);
@@ -402,6 +408,13 @@ impl Rect {
 
     pub fn contains(&self, pos: Pos) -> bool {
         pos.x >= self.x1 && pos.x <= self.x2 && pos.y >= self.y1 && pos.y <= self.y2
+    }
+
+    pub fn center(&self) -> Pos {
+        Pos {
+            x: avg!(self.x1, self.x2),
+            y: avg!(self.y1, self.y2),
+        }
     }
 }
 

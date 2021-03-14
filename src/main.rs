@@ -9,6 +9,7 @@ use rand::SeedableRng;
 use std::collections::HashSet;
 
 mod fov;
+#[macro_use]
 mod map_gen;
 mod world;
 

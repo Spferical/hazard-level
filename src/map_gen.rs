@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use rand::rngs::SmallRng;
@@ -43,6 +44,23 @@ impl From<CarveRoomOpts> for BspSplitOpts {
     }
 }
 
+pub fn carve_room(
+    world: &mut World,
+    room: Rect,
+    adj_rooms: Vec<Rect>,
+    rng: &mut impl Rng,
+    floor: TileKind,
+) {
+    fill_rect(world, room, floor);
+    for adj in adj_rooms {
+        let wall = get_connecting_wall(room, adj).unwrap();
+        let has_door = wall.into_iter().any(|pos| world[pos].kind.is_walkable());
+        if !has_door {
+            carve_floor(world, wall.choose(rng), 0, floor);
+        }
+    }
+}
+
 pub fn carve_rooms_bsp(
     world: &mut World,
     rect: Rect,
@@ -50,18 +68,18 @@ pub fn carve_rooms_bsp(
     rng: &mut impl Rng,
 ) -> Vec<Rect> {
     let tree = gen_bsp_tree(rect, (*opts).into(), rng);
-    let rooms_with_adj = tree.into_rooms_and_tree_adj();
-    for (room, adj_rooms) in &rooms_with_adj {
-        fill_rect(world, *room, opts.floor);
-        for adj in adj_rooms {
-            let wall = get_connecting_wall(*room, *adj).unwrap();
+    let room_graph = tree.into_room_graph();
+    for room in room_graph.iter() {
+        fill_rect(world, room, opts.floor);
+        for adj in room_graph.get_adj(room).unwrap() {
+            let wall = get_connecting_wall(room, *adj).unwrap();
             let has_door = wall.into_iter().any(|pos| world[pos].kind.is_walkable());
             if !has_door {
                 carve_floor(world, wall.choose(rng), 0, opts.floor);
             }
         }
     }
-    rooms_with_adj.into_iter().map(|r| r.0).collect()
+    room_graph.iter().collect()
 }
 
 pub fn carve_rooms_bsp_extra_loops(
@@ -72,7 +90,7 @@ pub fn carve_rooms_bsp_extra_loops(
     loopiness: f32,
 ) -> Vec<Rect> {
     let rooms = carve_rooms_bsp(world, rect, opts, rng);
-    for _ in 0..(rooms.len() as f32 * loopiness) as u32 {
+    for _ in 0..((rooms.len() - 1) as f32 * loopiness) as u32 {
         loop {
             let room1 = rooms.choose(rng).unwrap();
             let room2 = rooms.choose(rng).unwrap();
@@ -145,29 +163,101 @@ pub enum BspTree {
 }
 
 impl BspTree {
-    fn into_rooms_and_tree_adj(self) -> Vec<(Rect, Vec<Rect>)> {
+    fn into_room_graph(self) -> RoomGraph {
+        let graph = RoomGraph::new();
         match self {
-            BspTree::Room(rect) => vec![(rect, vec![])],
+            BspTree::Room(rect) => {
+                let mut graph = RoomGraph::new();
+                graph.add_room(rect);
+                graph
+            }
             BspTree::Split(tree1, tree2) => {
-                let mut rooms1 = tree1.into_rooms_and_tree_adj();
-                let mut rooms2 = tree2.into_rooms_and_tree_adj();
+                let mut rooms1 = tree1.into_room_graph();
+                let mut rooms2 = tree2.into_room_graph();
                 // now figure out how to bridge the trees
-                let mut bridged = false;
-                'loop1: for (room1, ref mut adj1) in &mut rooms1 {
-                    for (room2, ref mut adj2) in &mut rooms2 {
-                        if get_connecting_wall(*room1, *room2).is_some() {
-                            adj1.push(*room2);
-                            adj2.push(*room1);
-                            bridged = true;
-                            break 'loop1;
-                        }
-                    }
-                }
-                assert!(bridged);
-                rooms1.extend(rooms2);
+                rooms1.extend_bridged(rooms2);
                 rooms1
             }
         }
+    }
+}
+
+struct RoomGraph {
+    pub room_adj: HashMap<Rect, Vec<Rect>>,
+}
+
+impl RoomGraph {
+    fn get_adj(&self, rect: Rect) -> Option<&[Rect]> {
+        self.room_adj.get(&rect).map(|v| v.as_slice())
+    }
+    fn choose(&self, rng: &mut impl Rng) -> Option<Rect> {
+        if self.room_adj.is_empty() {
+            return None;
+        }
+        let idx = rng.gen_range(0..self.room_adj.len());
+        self.room_adj.keys().nth(idx).cloned()
+    }
+    fn len(&self) -> usize {
+        self.room_adj.len()
+    }
+    fn is_connected(&self, rect1: Rect, rect2: Rect) -> bool {
+        self.room_adj
+            .get(&rect1)
+            .map(|adj| adj.contains(&rect2))
+            .unwrap_or(false)
+    }
+    fn remove_room(&mut self, rect: Rect) {
+        self.room_adj.retain(|r, v| *r != rect);
+    }
+    fn find_spatially_adjacent(&self, rect: Rect) -> Option<Rect> {
+        for (room, ref adjs) in &self.room_adj {
+            if let Some(_wall) = get_connecting_wall(rect, *room) {
+                return Some(*room);
+            }
+        }
+        None
+    }
+    fn extend_bridged(&mut self, mut other: RoomGraph) {
+        let mut bridged = false;
+        'loop1: for (room1, ref mut adj1) in &mut self.room_adj {
+            for (room2, ref mut adj2) in &mut other.room_adj {
+                if get_connecting_wall(*room1, *room2).is_some() {
+                    bridged = true;
+                    adj1.push(*room2);
+                    adj2.push(*room1);
+                    break 'loop1;
+                }
+            }
+        }
+        assert!(bridged);
+        self.room_adj.extend(other.room_adj);
+    }
+    fn extend(&mut self, other: RoomGraph) {
+        self.room_adj.extend(other.room_adj)
+    }
+    fn new() -> Self {
+        Self {
+            room_adj: HashMap::new(),
+        }
+    }
+    fn add_room(&mut self, room: Rect) {
+        self.room_adj.insert(room, vec![]);
+    }
+    fn add_connection(&mut self, room1: Rect, room2: Rect) {
+        assert!(get_connecting_wall(room1, room2).is_some());
+        assert!(self.room_adj.contains_key(&room1));
+        assert!(self.room_adj.contains_key(&room2));
+        self.room_adj.get_mut(&room2).unwrap().push(room1);
+        self.room_adj.get_mut(&room1).unwrap().push(room2);
+    }
+    fn add_connection_oneway(&mut self, room1: Rect, room2: Rect) {
+        assert!(get_connecting_wall(room1, room2).is_some());
+        assert!(self.room_adj.contains_key(&room1));
+        self.room_adj.get_mut(&room1).unwrap().push(room2);
+    }
+
+    fn iter<'a>(&'a self) -> impl Iterator<Item = Rect> + 'a {
+        self.room_adj.keys().copied()
     }
 }
 
@@ -277,24 +367,20 @@ pub fn fill_rect(world: &mut World, rect: Rect, kind: TileKind) {
     }
 }
 
-fn gen_offices(
-    world: &mut World,
-    rng: &mut impl Rng,
-    left_entrance: Pos,
-    rect: Rect,
-) -> (Pos, Offset) {
+fn gen_offices(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: Rect) {
     // offices
-    fill_rect(world, rect, TileKind::Wall);
-    carve_floor(world, left_entrance, 1, TileKind::Floor);
+    for entrance in entrances {
+        carve_floor(world, *entrance, 1, TileKind::Floor);
+    }
     let bsp_opts = CarveRoomOpts {
         wall: TileKind::Wall,
         floor: TileKind::Floor,
-        max_width: 10,
-        max_height: 10,
+        max_width: 6,
+        max_height: 6,
         min_width: 2,
         min_height: 2,
     };
-    let rect = Rect::new(rect.x1 + 1, rect.x2 - 1, rect.y1 + 1, rect.y2 - 1);
+    // let rect = Rect::new(rect.x1 + 1, rect.x2 - 1, rect.y1 + 1, rect.y2 - 1);
     let rooms = carve_rooms_bsp_extra_loops(world, rect, &bsp_opts, rng, 1.0);
     for room in &rooms {
         // furnish the rooms a little
@@ -312,14 +398,17 @@ fn gen_offices(
             }
         }
     }
+    let size = rect.width() * rect.height();
     // spawn some enemies
-    for _ in 0..100 {
+    for _ in 0..rng.gen_range(0..=(size / 20).max(1)) {
         let room = rooms.choose(rng).unwrap();
         let x = rng.gen_range(room.x1..=room.x2);
         let y = rng.gen_range(room.y1..=room.y2);
         let pos = Pos { x, y };
         let rand = rng.gen::<f32>();
-        let kind = if rand < 0.1 {
+        let kind = if rand < 0.01 {
+            MobKind::Sculpture
+        } else if rand < 0.1 {
             MobKind::Alien
         } else {
             MobKind::Zombie
@@ -327,12 +416,8 @@ fn gen_offices(
         world.mobs.insert(pos, Mob::new(kind));
     }
 
-    let room = rooms.choose(rng).unwrap();
-    let pos = room.choose(rng);
-    world.mobs.insert(pos, Mob::new(MobKind::Sculpture));
-
     // spawn some ammo
-    for _ in 0..20 {
+    for _ in 0..rng.gen_range(0..size / 50).max(1) {
         loop {
             let room = rooms.choose(rng).unwrap();
             let pos = room.choose(rng);
@@ -343,20 +428,6 @@ fn gen_offices(
         }
     }
     carve_floor(world, Pos { x: 8, y: 0 }, 1, TileKind::Floor);
-
-    let rightmost_room = **rooms
-        .iter()
-        .filter(|r| r.x2 == rect.x2)
-        .collect::<Vec<_>>()
-        .choose(rng)
-        .unwrap();
-    let center_y = avg!(rightmost_room.y1, rightmost_room.y2);
-    let right_wall = Pos {
-        x: rect.x2 + 1,
-        y: center_y,
-    };
-    carve_floor(world, right_wall, 0, TileKind::Floor);
-    (right_wall, Offset { x: 1, y: 0 })
 }
 
 fn generate_containment(
@@ -470,28 +541,93 @@ fn generate_containment(
 pub fn generate_world(world: &mut World, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
     // left ocean none beef
-    fill_rect(world, Rect::new(-50, 40, -50, 50), TileKind::Ocean);
+    fill_rect(world, Rect::new(-50, 10, -50, 50), TileKind::Ocean);
     fill_rect(world, Rect::new(-10, 10, -10, 10), TileKind::BlackFloor);
     // h for helicopter
     fill_rect(world, Rect::new(-3, -3, -3, 3), TileKind::YellowFloor);
     fill_rect(world, Rect::new(3, 3, -3, 3), TileKind::YellowFloor);
     fill_rect(world, Rect::new(-3, 3, 0, 0), TileKind::YellowFloor);
+    let start_room = Rect::new(-10, 10, -10, 10);
 
-    let (mut edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
-    carve_floor(world, edge, 0, TileKind::Floor);
-    edge += dir;
-    let (mut edge, dir) = generate_containment(world, &mut rng, edge);
-    edge += dir;
-    carve_floor(world, edge, 0, TileKind::Floor);
+    let world_rect = Rect {
+        x1: 11,
+        x2: 111,
+        y1: -50,
+        y2: 50,
+    };
+    fill_rect(world, world_rect, TileKind::Wall);
+    let world_rect = world_rect.expand(-1);
+    let bsp_opts = BspSplitOpts {
+        max_width: 30,
+        max_height: 30,
+        min_width: 10,
+        min_height: 10,
+    };
+    let big_bsp = gen_bsp_tree(world_rect, bsp_opts, &mut rng);
+    let mut room_graph = big_bsp.into_room_graph();
 
-    // goal
-    fill_rect(
-        world,
-        Rect::new(edge.x + 1, edge.x + 4, edge.y - 2, edge.y + 2),
-        TileKind::BloodyFloor,
-    );
-    carve_floor(world, edge + Offset { x: 2, y: 0 }, 0, TileKind::Computer);
-    //gen_lab_complex(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
+    // create the entrance
+    let next_to_entrance = room_graph.find_spatially_adjacent(start_room).unwrap();
+    let wall = get_connecting_wall(next_to_entrance, start_room).unwrap();
+    fill_rect(world, wall, TileKind::BlackFloor);
+    room_graph.add_connection_oneway(next_to_entrance, start_room);
+
+    // pick the smallest right-most room and empty it and add a computer
+    let final_room = room_graph
+        .iter()
+        .filter(|r| r.x2 == world_rect.x2)
+        .min_by_key(|r| r.x2)
+        .unwrap()
+        .clone();
+    room_graph.remove_room(final_room);
+    fill_rect(world, final_room, TileKind::BloodyFloor);
+    carve_floor(world, final_room.center(), 0, TileKind::Computer);
+
+    // add some loops to the rooms
+    let loopiness = 1.0;
+    for _ in 0..((room_graph.len() - 1) as f32 * loopiness) as u32 {
+        loop {
+            let room1 = room_graph.choose(&mut rng).unwrap();
+            let room2 = room_graph.choose(&mut rng).unwrap();
+            if let Some(_wall) = get_connecting_wall(room1, room2) {
+                room_graph.add_connection(room1, room2);
+                break;
+            }
+        }
+    }
+
+    // finally, gen the intermediate rooms
+    for room in room_graph.iter() {
+        let adjs = room_graph.get_adj(room).unwrap();
+        // carve_room(world, room, adjs, &mut rng, TileKind::Floor);
+        let entrances = adjs
+            .into_iter()
+            .map(|adj| get_connecting_wall(room, *adj).unwrap())
+            .map(|r| r.choose(&mut rng))
+            .collect::<Vec<_>>();
+        gen_offices(world, &mut rng, &entrances, room);
+        for entrance in entrances {
+            carve_floor(world, entrance, 0, TileKind::Floor);
+        }
+    }
+
+    /*
+        let (mut edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
+        carve_floor(world, edge, 0, TileKind::Floor);
+        edge += dir;
+        let (mut edge, dir) = generate_containment(world, &mut rng, edge);
+        edge += dir;
+        carve_floor(world, edge, 0, TileKind::Floor);
+
+        // goal
+        fill_rect(
+            world,
+            Rect::new(edge.x + 1, edge.x + 4, edge.y - 2, edge.y + 2),
+            TileKind::BloodyFloor,
+        );
+        carve_floor(world, edge + Offset { x: 2, y: 0 }, 0, TileKind::Computer);
+        //gen_lab_complex(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
+    */
 }
 
 pub fn carve_floor(world: &mut World, pos: Pos, brush_size: u8, tile: TileKind) {
@@ -509,21 +645,23 @@ pub fn gen_lab_complex(world: &mut World, rng: &mut impl Rng, left_entrance: Pos
     fill_rect(world, rect, TileKind::Wall);
     carve_floor(world, left_entrance, 1, TileKind::Floor);
     let bsp_opts = BspSplitOpts {
-        max_width: 30,
-        max_height: 30,
-        min_width: 5,
-        min_height: 5,
+        max_width: 100,
+        max_height: 100,
+        min_width: 20,
+        min_height: 20,
     };
 
     let tree = gen_bsp_tree(rect, bsp_opts, rng);
-    let rooms_with_adj = tree.into_rooms_and_tree_adj();
+    let room_graph = tree.into_room_graph();
 
     // todo: add non-tree connections
     // maybe add them as optional connections for the segment carver
 
+    /*
     for (room, adj_rooms) in rooms_with_adj {
         carve_segment(world, 0, room, TileKind::Floor, rng);
     }
+    */
 }
 
 pub fn carve_segment(
