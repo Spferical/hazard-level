@@ -16,6 +16,9 @@ mod map_gen;
 mod world;
 
 const FOV_RANGE: i32 = 8;
+const DESCRIPTION_WIDTH: i32 = 15;
+const MOB_DESCRIPTION_HEIGHT: i32 = 5;
+const SENSING_HEIGHT: i32 = 30;
 
 type NamedColor = (u8, u8, u8);
 
@@ -394,14 +397,47 @@ impl Ui {
         let map_rect = Rect {
             x: 0,
             y: 0,
-            w: w as i32,
+            w: w as i32 - DESCRIPTION_WIDTH,
+            h: h as i32 - 2,
+        };
+        map_rect
+    }
+
+    fn get_mob_description_rect(ctx: &BTerm) -> Rect {
+        let (w, _) = ctx.get_char_size();
+        let map_rect = Rect {
+            x: w as i32 - DESCRIPTION_WIDTH,
+            y: 0,
+            w: DESCRIPTION_WIDTH,
+            h: MOB_DESCRIPTION_HEIGHT as i32,
+        };
+        map_rect
+    }
+
+    fn get_sensing_rect(ctx: &BTerm) -> Rect {
+        let (w, _) = ctx.get_char_size();
+        let map_rect = Rect {
+            x: w as i32 - DESCRIPTION_WIDTH,
+            y: MOB_DESCRIPTION_HEIGHT,
+            w: DESCRIPTION_WIDTH,
+            h: SENSING_HEIGHT,
+        };
+        map_rect
+    }
+
+    fn get_announcement_rect(ctx: &BTerm) -> Rect {
+        let (w, h) = ctx.get_char_size();
+        let map_rect = Rect {
+            x: w as i32 - DESCRIPTION_WIDTH,
+            y: MOB_DESCRIPTION_HEIGHT + SENSING_HEIGHT,
+            w: DESCRIPTION_WIDTH,
             h: h as i32 - 2,
         };
         map_rect
     }
 
     fn draw(&mut self, ctx: &mut BTerm) {
-        let (_w, h) = ctx.get_char_size();
+        let (w, h) = ctx.get_char_size();
         let map_rect = Self::get_map_rect(ctx);
         let player_pos = self.gs.world.player_pos();
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
@@ -438,6 +474,42 @@ impl Ui {
             MissionState::Win => ("YOU WIN!".to_string(), RGB::named(DARK_GREEN)),
         });
         self.print_multi(ctx, 0, h as i32 - 2, &statusbar);
+
+        let memory_rect = Self::get_mob_description_rect(ctx);
+        let sensing_rect = Self::get_sensing_rect(ctx);
+        let announcement_rect = Self::get_announcement_rect(ctx);
+
+        ctx.print_color(
+            memory_rect.x,
+            memory_rect.y,
+            RGB::named(LIGHT_WHITE),
+            RGB::named(DARK_BLUE),
+            format!("{:width$}", "MEMORY", width = DESCRIPTION_WIDTH as usize),
+        );
+
+        ctx.print_color(
+            sensing_rect.x,
+            sensing_rect.y,
+            RGB::named(LIGHT_WHITE),
+            RGB::named(DARK_GREEN),
+            format!(
+                "{:width$}",
+                "PERCEPTION",
+                width = DESCRIPTION_WIDTH as usize
+            ),
+        );
+
+        ctx.print_color(
+            announcement_rect.x,
+            announcement_rect.y,
+            RGB::named(LIGHT_WHITE),
+            RGB::named(DARK_RED),
+            format!(
+                "{:width$}",
+                "INTERCOM",
+                width = DESCRIPTION_WIDTH as usize
+            ),
+        );
 
         ctx.print_color_centered(
             h as i32 - 1,
