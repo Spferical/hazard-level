@@ -14,7 +14,7 @@ use crate::map_gen;
 
 pub const CHUNKSIZE: usize = 16;
 pub const FOV_RANGE: i32 = 8;
-pub const PLAYER_MAX_HEALTH: i32 = 4;
+pub const PLAYER_MAX_HEALTH: i32 = 10;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {

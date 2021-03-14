@@ -364,7 +364,7 @@ impl Ui {
         }
         let thing_fov = fov::calculate_fov(thing_pos, FOV_RANGE, &self.gs.world);
         for pos in thing_fov {
-            if seen.contains(&pos) {
+            if seen.contains(&pos) && self.gs.world[pos].kind.is_walkable() {
                 if self.rng.gen::<f32>() < 0.1 {
                     let screen_pos = self.map_to_screen(pos, screen_rect);
                     ctx.print_color(
@@ -416,7 +416,7 @@ impl Ui {
         statusbar.push((" hp:".to_string(), RGB::named(LIGHT_WHITE)));
         let color = match self.gs.world.player_damage() {
             0 => RGB::named(LIGHT_GREEN),
-            1 | 2 | 3 => RGB::named(LIGHT_YELLOW),
+            i if i <= PLAYER_MAX_HEALTH => RGB::named(LIGHT_YELLOW),
             _ => RGB::named(LIGHT_RED),
         };
         statusbar.push((
@@ -469,6 +469,10 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
         ui.random_text_effect(ctx, "DEAD".to_string(), 1f32, RGB::named(DARK_RED));
         return;
     }
+    if ctx.key.is_some() && matches!(ui.gs.state, world::MissionState::Win) {
+        ui.random_text_effect(ctx, "YOU WIN".to_string(), 1f32, RGB::named(LIGHT_GREEN));
+        return;
+    }
     // Player movement
     let moved = match ctx.key {
         None => false, // Nothing happened
@@ -479,8 +483,8 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                     Right | L => ui.move_player(world::Offset { x: 1, y: 0 }),
                     Up | K => ui.move_player(world::Offset { x: 0, y: -1 }),
                     Down | J => ui.move_player(world::Offset { x: 0, y: 1 }),
-                    Space => true,
-                    Tab => {
+                    Space | Period | NumpadDecimal => true,
+                    F7 => {
                         ui.gs.debug_mode = !ui.gs.debug_mode;
                         false
                     }

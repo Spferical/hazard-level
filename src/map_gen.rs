@@ -398,7 +398,7 @@ fn gen_offices(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: R
     }
     let size = rect.width() * rect.height();
     // spawn some enemies
-    for _ in 0..rng.gen_range(0..=(size / 20).max(1)) {
+    for _ in 0..(size / 20).max(1) {
         let room = rooms.choose(rng).unwrap();
         let x = rng.gen_range(room.x1..=room.x2);
         let y = rng.gen_range(room.y1..=room.y2);
@@ -415,7 +415,7 @@ fn gen_offices(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: R
     }
 
     // spawn some ammo
-    for _ in 0..rng.gen_range(0..size / 50).max(1) {
+    for _ in 0..(size / 70).max(1) {
         loop {
             let room = rooms.choose(rng).unwrap();
             let pos = room.choose(rng);
