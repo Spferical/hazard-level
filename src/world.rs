@@ -332,7 +332,7 @@ const UNSEEN_CHUNK: Chunk = Chunk {
 #[derive(Debug, Clone)]
 pub struct Thing {
     pub pos: Pos,
-    elapsed: f32,
+    pub elapsed: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -487,8 +487,7 @@ impl World {
             player_damage: 0,
             player_ammo: 32,
             thing: Thing {
-                // TODO
-                pos: Pos { x: -20, y: 0 },
+                pos: Pos { x: -3, y: 0 },
                 elapsed: 0.0,
             },
         }
@@ -609,7 +608,7 @@ impl World {
     fn update_thing(&mut self, dt: f32, _effects: &mut Vec<(Pos, Effect)>, _rng: &mut impl Rng) {
         let old_elapsed = self.thing.elapsed;
         self.thing.elapsed += dt;
-        let thing_dist = |x: f32| (x * 2f32.powf((x - 360.0) / 360.0)) as i32;
+        let thing_dist = |x: f32| (x * 2f32.powf((x - 300.0) / 300.0)) as i32;
         let player_dist = (self.thing.pos - self.player_pos).mhn_dist() as usize * 4;
         for _ in thing_dist(old_elapsed)..thing_dist(self.thing.elapsed) {
             let new_pos = self.move_towards(

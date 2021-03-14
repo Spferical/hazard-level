@@ -5,6 +5,8 @@ use crate::world::PLAYER_MAX_HEALTH;
 use crate::world::{Offset, Pos, TileKind};
 use bracket_lib::prelude::*;
 use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
+use rand::Rng;
 use rand::SeedableRng;
 use std::collections::HashSet;
 
@@ -66,7 +68,9 @@ struct Ui {
 }
 
 impl Ui {
-    fn add_text_effect_1s<T: ToString>(&mut self, pos: Pos, text: T, color: RGB) {
+    fn add_text_effect_1s<T: ToString>(&mut self, mut pos: Pos, text: T, color: RGB) {
+        // try not to overlap with the exact position
+        pos.x += 1;
         self.effects.push(Effect::Text {
             pos,
             text: text.to_string(),
@@ -282,6 +286,14 @@ impl Ui {
 
     fn draw_map(&mut self, ctx: &mut BTerm, screen_rect: Rect, seen: &HashSet<Pos>) {
         let gs = &self.gs;
+        // thing effects
+        let thing_pos = gs.world.thing.pos;
+        let thing_dist = (thing_pos - self.gs.world.player_pos()).mhn_dist().max(1);
+        let thing_noise_strength = (1.0 / thing_dist as f32).min(1.0 / 5.0);
+        let noise_speed = thing_noise_strength * 100.0;
+        let mut thing_noise = FastNoise::seeded((gs.world.thing.elapsed * noise_speed) as u64);
+        thing_noise.set_frequency(1.0 / thing_dist as f32);
+
         for rect_x in 0..screen_rect.w {
             for rect_y in 0..screen_rect.h {
                 let rect_pos = Pos {
@@ -314,11 +326,14 @@ impl Ui {
                 }
                 let screen_pos = self.map_rect_to_screen(rect_pos, screen_rect);
 
+                let noise_factor = thing_noise_strength
+                    * thing_noise.get_noise(map_pos.x as f32, map_pos.y as f32);
+
                 ctx.print_color(
                     screen_pos.x,
                     screen_pos.y,
-                    printable.fg,
-                    printable.bg,
+                    printable.fg.lerp(RGB::named(BLACK), noise_factor),
+                    printable.bg.lerp(RGB::named(BLACK), noise_factor),
                     printable.symbol,
                 );
             }
@@ -338,10 +353,30 @@ impl Ui {
             "@",
         );
 
-        let bg = RGB::named(DARK_BLACK);
-        let fg = RGB::named(LIGHT_WHITE);
-        let screen_pos = self.map_to_screen(self.gs.world.thing.pos, screen_rect);
-        ctx.print_color(screen_pos.x, screen_pos.y, fg, bg, "T");
+        if seen.contains(&self.gs.world.thing.pos) {
+            let bg = RGB::named(DARK_BLACK);
+            let fg = RGB::named(LIGHT_WHITE);
+            let screen_pos = self.map_to_screen(self.gs.world.thing.pos, screen_rect);
+            let thing_chars: Vec<char> =
+                "QWERTYUIOPASDFGHJKLZXCVBNM!@#$%^&*():;~".chars().collect();
+            let thing_char = thing_chars.as_slice().choose(&mut self.rng).unwrap();
+            ctx.print_color(screen_pos.x, screen_pos.y, fg, bg, thing_char);
+        }
+        let thing_fov = fov::calculate_fov(thing_pos, FOV_RANGE, &self.gs.world);
+        for pos in thing_fov {
+            if seen.contains(&pos) {
+                if self.rng.gen::<f32>() < 0.1 {
+                    let screen_pos = self.map_to_screen(pos, screen_rect);
+                    ctx.print_color(
+                        screen_pos.x,
+                        screen_pos.y,
+                        RGB::named(BLACK),
+                        RGB::named(BLACK),
+                        " ",
+                    );
+                }
+            }
+        }
     }
 
     fn print_multi(&mut self, ctx: &mut BTerm, mut x: i32, y: i32, texts: &[(String, RGB)]) {
@@ -449,6 +484,12 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                         ui.gs.debug_mode = !ui.gs.debug_mode;
                         false
                     }
+                    F8 => {
+                        ui.gs
+                            .world
+                            .move_player(ui.gs.world.thing.pos - ui.gs.world.player_pos(), true);
+                        false
+                    }
                     _ => false,
                 }
             } else {
@@ -493,16 +534,20 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
     }
 }
 
+fn new_game() -> world::GameState {
+    let mut gs = world::GameState::new();
+    gs.generate_world(RandomNumberGenerator::new().rand());
+    gs
+}
+
 fn main() {
     let context = BTermBuilder::simple80x50()
         .with_title("Run")
         .with_fps_cap(30.0)
         .build()
         .unwrap();
-    let mut gs = world::GameState::new();
-    gs.generate_world(RandomNumberGenerator::new().rand());
     let ui = Ui {
-        gs,
+        gs: new_game(),
         effects: vec![],
         rng: SmallRng::seed_from_u64(72),
     };
