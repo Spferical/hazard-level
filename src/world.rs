@@ -214,6 +214,15 @@ impl MobKind {
             Self::Sculpture => 99,
         }
     }
+
+    pub fn mob_description(&self) -> &'static str {
+        match self {
+            Self::Zombie => "Zombie!",
+            Self::OldMan => "Old man!",
+            Self::Alien => "Scary scary Alien!!",
+            Self::Sculpture => "just a sculpture",
+        }
+    }
 }
 
 pub struct TileKindInfo {
@@ -831,7 +840,7 @@ impl GameState {
 
             most_recent_mob: None,
             sensing: Vec::new(),
-            announcements: Vec::new()
+            announcements: Vec::new(),
         }
     }
 
@@ -840,7 +849,17 @@ impl GameState {
     }
 
     pub fn get_mob_text(&self) -> String {
-        return String::from("mob text placeholder");
+        let visibility = fov::calculate_fov(self.world.player_pos, FOV_RANGE, &self.world);
+        return String::from(
+            self.world
+                .mobs
+                .iter()
+                .filter(|(pos, _)| visibility.contains(pos))
+                .map(|(pos, mob)| ((self.world.player_pos - *pos).mhn_dist(), mob))
+                .min_by_key(|(dist, _)| *dist)
+                .and_then(|mob| Some(mob.1.kind.mob_description()))
+                .unwrap_or(""),
+        );
     }
 
     pub fn generate_world(&mut self, seed: u64) {
