@@ -261,8 +261,8 @@ impl RoomGraph {
 
 // returns (rooms, walls between connected rooms in the bsp tree)
 pub fn gen_bsp_tree(rect: Rect, opts: BspSplitOpts, rng: &mut impl Rng) -> BspTree {
-    assert!(opts.min_width * 2 + 1 < opts.max_width);
-    assert!(opts.min_height * 2 + 1 < opts.max_height);
+    assert!(opts.min_width * 2 + 1 <= opts.max_width);
+    assert!(opts.min_height * 2 + 1 <= opts.max_height);
     #[derive(Clone, Copy, Debug)]
     enum Split {
         X,
@@ -370,13 +370,17 @@ fn gen_offices(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: R
     for entrance in entrances {
         carve_floor(world, *entrance, 1, TileKind::Floor);
     }
+    let max_width = rng.gen_range(4..=rect.width().min(8));
+    let min_width = max_width / 2 - 1;
+    let max_height = rng.gen_range(4..=rect.width().min(8));
+    let min_height = max_height / 2 - 1;
     let bsp_opts = CarveRoomOpts {
         wall: TileKind::Wall,
         floor: TileKind::Floor,
-        max_width: 6,
-        max_height: 6,
-        min_width: 2,
-        min_height: 2,
+        max_width,
+        max_height,
+        min_width,
+        min_height,
     };
     // let rect = Rect::new(rect.x1 + 1, rect.x2 - 1, rect.y1 + 1, rect.y2 - 1);
     let rooms = carve_rooms_bsp_extra_loops(world, rect, &bsp_opts, rng, 1.0);
