@@ -418,7 +418,7 @@ impl Ui {
         statusbar.push((" hp:".to_string(), RGB::named(LIGHT_WHITE)));
         let color = match self.gs.world.player_damage() {
             0 => RGB::named(LIGHT_GREEN),
-            i if i <= PLAYER_MAX_HEALTH => RGB::named(LIGHT_YELLOW),
+            i if i < PLAYER_MAX_HEALTH => RGB::named(LIGHT_YELLOW),
             _ => RGB::named(LIGHT_RED),
         };
         statusbar.push((
