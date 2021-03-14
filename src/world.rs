@@ -380,6 +380,30 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn topleft(&self) -> Pos {
+        Pos {
+            x: self.x1,
+            y: self.y1,
+        }
+    }
+    pub fn topright(&self) -> Pos {
+        Pos {
+            x: self.x2,
+            y: self.y1,
+        }
+    }
+    pub fn bottomleft(&self) -> Pos {
+        Pos {
+            x: self.x1,
+            y: self.y2,
+        }
+    }
+    pub fn bottomright(&self) -> Pos {
+        Pos {
+            x: self.x2,
+            y: self.y2,
+        }
+    }
     pub fn width(&self) -> i32 {
         self.x2 - self.x1
     }
@@ -526,16 +550,7 @@ impl World {
         range: Option<usize>,
     ) -> Pos {
         let range = range.unwrap_or(FOV_RANGE as usize * 3);
-        let off = if through_walls {
-            let mut off = (target - pos).norm();
-            if off.x != 0 && off.y != 0 {
-                // meh just bias y like the pathing
-                off.x = 0;
-            }
-            Some(off)
-        } else {
-            self.path(pos, target, range, around_mobs)
-        };
+        let off = self.path(pos, target, range, through_walls, around_mobs);
         if let Some(off) = off {
             let new_pos = pos + off;
             if !self.mobs.contains_key(&new_pos) {
@@ -712,7 +727,14 @@ impl World {
         self.player_pos
     }
 
-    pub fn path(&self, start: Pos, end: Pos, maxdist: usize, around_mobs: bool) -> Option<Offset> {
+    pub fn path(
+        &self,
+        start: Pos,
+        end: Pos,
+        maxdist: usize,
+        through_walls: bool,
+        around_mobs: bool,
+    ) -> Option<Offset> {
         if start == end {
             return Some(Offset { x: 0, y: 0 });
         }
@@ -721,13 +743,20 @@ impl World {
         let mut new_periphery = Vec::new();
         visited.insert(start);
         periphery.push(vec![start]);
+        let mut closest_path: Option<Vec<_>> = None;
         loop {
-            if periphery.is_empty() {
-                return None;
+            if periphery.is_empty() || periphery[0].len() > maxdist {
+                return if let Some(ref p) = closest_path {
+                    if p.len() >= 2 {
+                        Some(p[1] - p[0])
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
             }
-            if periphery[0].len() > maxdist {
-                return None;
-            }
+            if periphery[0].len() > maxdist {}
             for path in periphery.drain(..) {
                 let pos = *path.last().unwrap();
                 let adjacent = CARDINALS
@@ -735,7 +764,7 @@ impl World {
                     .copied()
                     .map(|c| pos + c)
                     .filter(|pos| !visited.contains(pos))
-                    .filter(|pos| self[*pos].kind.is_walkable())
+                    .filter(|pos| through_walls || self[*pos].kind.is_walkable())
                     .filter(|pos| !around_mobs || !self.mobs.contains_key(pos))
                     .collect::<Vec<_>>();
                 for pos in adjacent {
@@ -744,6 +773,16 @@ impl World {
                     new_path.push(pos);
                     if pos == end {
                         return Some(new_path[1] - new_path[0]);
+                    }
+                    match closest_path {
+                        None => {
+                            closest_path = Some(new_path.clone());
+                        }
+                        Some(ref mut p) => {
+                            if (pos - end).mhn_dist() < (*p.last().unwrap() - end).mhn_dist() {
+                                *p = new_path.clone();
+                            }
+                        }
                     }
                     new_periphery.push(new_path);
                 }

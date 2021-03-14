@@ -609,6 +609,19 @@ pub fn generate_world(world: &mut World, seed: u64) {
         }
     }
 
+    // add old man
+    {
+        let rect = world_rect.expand(-10);
+        let mut man = Mob::new(MobKind::OldMan);
+        man.patrol = Some(vec![
+            rect.topleft(),
+            rect.bottomleft(),
+            rect.bottomright(),
+            rect.topright(),
+        ]);
+        world.mobs.insert(rect.topleft(), man);
+    }
+
     /*
         let (mut edge, dir) = gen_offices(world, &mut rng, Pos::new(8, 0), Rect::new(8, 50, -25, 25));
         carve_floor(world, edge, 0, TileKind::Floor);
