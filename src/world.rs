@@ -611,14 +611,18 @@ impl World {
         let thing_dist = |x: f32| (x * 2f32.powf((x - 300.0) / 300.0)) as i32;
         let player_dist = (self.thing.pos - self.player_pos).mhn_dist() as usize * 4;
         for _ in thing_dist(old_elapsed)..thing_dist(self.thing.elapsed) {
-            let new_pos = self.move_towards(
-                self.thing.pos,
-                self.player_pos,
-                false,
-                true,
-                Some(player_dist),
-            );
-            self.thing.pos = new_pos;
+            if (self.thing.pos - self.player_pos).mhn_dist() <= 1 {
+                self.damage_player()
+            } else {
+                let new_pos = self.move_towards(
+                    self.thing.pos,
+                    self.player_pos,
+                    false,
+                    true,
+                    Some(player_dist),
+                );
+                self.thing.pos = new_pos;
+            }
         }
     }
 
