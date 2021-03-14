@@ -830,6 +830,9 @@ fn gen_prefabs(world: &mut World, room: Rect, entrances: &Vec<Pos>, rng: &mut im
     for _ in 0..(empty_spaces / 70).max(1) {
         loop {
             let pos = room.choose(rng);
+            if !world[pos].kind.is_walkable() {
+                continue;
+            }
             if world[pos].item.is_none() {
                 world[pos].item = Some(Item::Ammo);
                 break;
