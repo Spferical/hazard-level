@@ -608,7 +608,7 @@ impl World {
     fn update_thing(&mut self, dt: f32, _effects: &mut Vec<(Pos, Effect)>, _rng: &mut impl Rng) {
         let old_elapsed = self.thing.elapsed;
         self.thing.elapsed += dt;
-        let thing_dist = |x: f32| (x * 2f32.powf((x - 300.0) / 300.0)) as i32;
+        let thing_dist = |x: f32| (x * (x / 300.0)) as i32;
         let player_dist = (self.thing.pos - self.player_pos).mhn_dist() as usize * 4;
         for _ in thing_dist(old_elapsed)..thing_dist(self.thing.elapsed) {
             if (self.thing.pos - self.player_pos).mhn_dist() <= 1 {
