@@ -1,8 +1,20 @@
+use std::io::Cursor;
+
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
 
+use image;
+use imageproc;
+
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
+
+pub const SEGMENTS: Vec<&[u8]> = vec![
+    include_bytes!("../static/0.ppm"),
+    include_bytes!("../static/0.ppm"), // make more stuff
+    include_bytes!("../static/0.ppm"),
+    include_bytes!("../static/0.ppm"),
+];
 
 macro_rules! avg {
     ($n: expr, $d: expr) => {
@@ -441,6 +453,77 @@ pub fn carve_floor(world: &mut World, pos: Pos, brush_size: u8, tile: TileKind) 
     for dx in brush_floor..=brush_ceil {
         for dy in brush_floor..=brush_ceil {
             world[pos + Offset { x: dx, y: dy }].kind = tile;
+        }
+    }
+}
+
+// my fancy new map gen stuff!
+pub fn gen_lab_complex(world: &mut World, rng: &mut impl Rng, left_entrance: Pos, rect: Rect) {
+    fill_rect(world, rect, TileKind::Wall);
+    carve_floor(world, left_entrance, 1, TileKind::Floor);
+    let bsp_opts = CarveRoomOpts {
+        wall: TileKind::Wall,
+        floor: TileKind::Wall,
+        max_width: 30,
+        max_height: 30,
+        min_width: 5,
+        min_height: 5,
+    };
+
+    let rect = Rect::new(rect.x1 + 1, rect.x2 - 1, rect.y1 + 1, rect.y2 - 1);
+    let segments = carve_rooms_bsp(world, rect, &bsp_opts, rng);
+}
+
+pub fn carve_segment(
+    world: &mut World,
+    segment_id: usize,
+    segment_dimensions: Rect,
+    floor_type: TileKind,
+    rng: &mut impl Rng,
+) {
+    let img_bytes = SEGMENTS[segment_id];
+    let img = image::io::Reader::new(Cursor::new(img_bytes))
+        .with_guessed_format()
+        .expect("unable to read ppm file in memory??")
+        .decode()
+        .unwrap();
+
+    let room_width = (segment_dimensions.x2 - segment_dimensions.x1) as u32 - 2;
+    let room_height = (segment_dimensions.y2 - segment_dimensions.y1) as u32 - 2;
+
+    // random rotation
+    let img = match rng.gen_range(0..4) {
+        1 => image::imageops::rotate90(&img),
+        2 => image::imageops::rotate180(&img),
+        3 => image::imageops::rotate270(&img),
+        _ => img.into_rgba8(),
+    };
+
+    // scale to size
+    let img = image::imageops::resize(
+        &img,
+        room_width,
+        room_height,
+        image::imageops::FilterType::Lanczos3,
+    );
+
+    let mut nexuses: Vec<Pos> = Vec::new();
+
+    // Carve out rooms
+    for (x, y, pixel) in img.enumerate_pixels() {
+        let alpha = pixel[0];
+        let nexus = pixel[1];
+
+        let pos = Pos::new(x as i32, y as i32);
+
+        if nexus > 0 {
+            nexuses.push(pos);
+        } else {
+            // alpha is 0 if it is a wall, 255 if it is empty
+            if rng.gen_range(0..255) < alpha {
+                // we carve it out
+                world[pos].kind = floor_type;
+            }
         }
     }
 }

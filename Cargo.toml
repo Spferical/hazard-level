@@ -14,3 +14,5 @@ indexmap = "1.0"
 rand = { version = "0.8", default-features=false, features=["small_rng"] }
 enum-map = "0.6"
 lazy_static = "1.2"
+imageproc = "0.22.0"
+image = "0.23.14"
