@@ -286,6 +286,10 @@ fn gen_offices(
         world.mobs.insert(pos, Mob::new(kind));
     }
 
+    let room = rooms.choose(rng).unwrap();
+    let pos = room.choose(rng);
+    world.mobs.insert(pos, Mob::new(MobKind::Sculpture));
+
     // spawn some ammo
     for _ in 0..20 {
         loop {
