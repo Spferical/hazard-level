@@ -1,15 +1,6 @@
-use enum_map::{enum_map, Enum, EnumMap};
-use indexmap::map::IndexMap;
-use lazy_static::lazy_static;
 use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::f64::consts::PI;
-use std::ops::Div;
-use std::ops::Sub;
-use std::ops::{Add, AddAssign, Index, IndexMut, Mul};
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
 
