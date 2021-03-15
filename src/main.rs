@@ -659,7 +659,8 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
             }
         }
     }
-    for (pos, effect) in ui.gs.tick(dt, moved, &mut ui.rng) {
+    let pos_effects = ui.gs.tick(dt, moved, &mut ui.rng);
+    for (pos, effect) in pos_effects {
         let pos = ui.map_to_screen(pos, Ui::get_map_rect(ctx));
         match effect {
             world::Effect::Creak => {
@@ -673,6 +674,32 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
             }
             world::Effect::Scrape => {
                 ui.add_text_effect_1s(pos, "*scrape*", RGB::named(DARK_RED));
+            }
+            world::Effect::Sing => {
+                if ui.rng.gen::<f32>() < 0.5 {
+                    ui.add_text_effect_1s(pos, "*whistle*", RGB::named(DARK_BLUE));
+                } else {
+                    let lyrics = [
+                        "once again",
+                        "you are my lucky star",
+                        "in trouble",
+                        "my lucky, lucky star",
+                        "the window frames",
+                        "putting on a smile",
+                        "living in a *whistle* house",
+                        "that was a strange mistake",
+                        "only, only, only",
+                        "someone's listening in",
+                        "do not throw stones",
+                        "red, green, blue",
+                    ];
+                    let line = lyrics.choose(&mut ui.rng).unwrap();
+                    ui.add_text_effect_1s(
+                        pos,
+                        line,
+                        RGB::named(DARK_BLUE),
+                    );
+                }
             }
         }
     }

@@ -569,6 +569,7 @@ pub enum Effect {
     Creak,
     Hiss,
     Scrape,
+    Sing,
 }
 
 impl World {
@@ -731,6 +732,9 @@ impl World {
                     if seen.contains(&pos) {
                         mob.saw_player_at = Some(self.player_pos);
                     } else {
+                        if rng.gen::<f32>() < 0.05 {
+                            effects.push((new_pos, Effect::Sing));
+                        }
                         for _ in 0..5 {
                             let next_pos = self
                                 .pursue_if_seen_player(&mut mob, new_pos, false, true)
