@@ -693,11 +693,7 @@ fn player_input(ui: &mut Ui, ctx: &mut BTerm) {
                         "red, green, blue",
                     ];
                     let line = lyrics.choose(&mut ui.rng).unwrap();
-                    ui.add_text_effect_1s(
-                        pos,
-                        line,
-                        RGB::named(DARK_BLUE),
-                    );
+                    ui.add_text_effect_1s(pos, line, RGB::named(DARK_BLUE));
                 }
             }
         }

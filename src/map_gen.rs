@@ -8,19 +8,17 @@ use rand::{seq::SliceRandom, SeedableRng};
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World};
 
-pub const ZERO_TEXT: &'static str = "";
-
-pub const SEGMENTS: &[(&[u8], (u32, u32))] = &[
-    (include_bytes!("../static/0.png"), (8, 8)),
-    (include_bytes!("../static/1.png"), (16, 16)), // make more stuff
-    (include_bytes!("../static/cells.png"), (20, 20)),
-    (include_bytes!("../static/dining.png"), (17, 17)),
-    (include_bytes!("../static/house.png"), (11, 7)),
-    (include_bytes!("../static/longrooms.png"), (20, 5)),
-    (include_bytes!("../static/maze.png"), (12, 12)),
-    (include_bytes!("../static/rooms.png"), (10, 10)),
-    (include_bytes!("../static/shelves.png"), (20, 20)),
-    (include_bytes!("../static/x.png"), (12, 12)),
+pub const SEGMENTS: &[(&[u8], (u32, u32), Option<&'static str>)] = &[
+    (include_bytes!("../static/0.png"), (8, 8), Some("*static*")),
+    (include_bytes!("../static/1.png"), (16, 16), None), // make more stuff
+    (include_bytes!("../static/cells.png"), (20, 20), None),
+    (include_bytes!("../static/dining.png"), (17, 17), None),
+    (include_bytes!("../static/house.png"), (11, 7), None),
+    (include_bytes!("../static/longrooms.png"), (20, 5), None),
+    (include_bytes!("../static/maze.png"), (12, 12), None),
+    (include_bytes!("../static/rooms.png"), (10, 10), None),
+    (include_bytes!("../static/shelves.png"), (20, 20), None),
+    (include_bytes!("../static/x.png"), (12, 12), None),
 ];
 
 macro_rules! avg {
@@ -680,12 +678,14 @@ pub fn generate_world(world: &mut World, seed: u64) {
         }
     }
 
+    let mut prefab_rects = HashMap::new();
+
     // finally, gen the intermediate rooms
     for room in room_graph.iter() {
         let adjs = room_graph.get_adj(room).unwrap();
         // carve_room(world, room, adjs, &mut rng, TileKind::Floor);
         let entrances = adjs
-            .into_iter()
+            .iter()
             .copied()
             .map(|adj| rooms_to_door.get(&sort_rooms(room, adj)).unwrap())
             .copied()
@@ -695,12 +695,20 @@ pub fn generate_world(world: &mut World, seed: u64) {
         if rand <= 0.4 {
             gen_offices(world, &mut rng, &entrances, room);
         } else if rand <= 0.95 {
-            gen_prefabs(world, room, &entrances, &mut rng);
+            let prefab_id = gen_prefabs(world, room, &entrances, &mut rng);
+            prefab_rects.entry(prefab_id).or_insert_with(|| vec![room]);
         } else {
             gen_alien_nest(world, &mut rng, &entrances, room);
             for entrance in entrances {
                 carve_floor(world, entrance, 0, TileKind::Floor);
             }
+        }
+    }
+
+    // prefab announcements
+    for (id, rects) in prefab_rects {
+        if let Some(msg) = SEGMENTS[id].2 {
+            world.pending_announcements.push((rects, msg));
         }
     }
 
@@ -741,7 +749,7 @@ pub fn carve_segment(
     floor_type: TileKind,
     rng: &mut impl Rng,
 ) -> (Vec<Pos>, usize) {
-    let (img_bytes, _) = SEGMENTS[segment_id];
+    let (img_bytes, _, _) = SEGMENTS[segment_id];
     let img = image::io::Reader::new(Cursor::new(img_bytes))
         .with_guessed_format()
         .expect("unable to read png file in memory??")
@@ -799,7 +807,7 @@ pub fn carve_segment(
     (nexuses, empty_spaces)
 }
 
-fn gen_prefabs(world: &mut World, room: Rect, entrances: &Vec<Pos>, rng: &mut impl Rng) {
+fn gen_prefabs(world: &mut World, room: Rect, entrances: &[Pos], rng: &mut impl Rng) -> usize {
     let sample_id = sample_until_valid(
         ((room.y2 - room.y1) as u32, (room.x2 - room.x1) as u32),
         rng,
@@ -850,4 +858,5 @@ fn gen_prefabs(world: &mut World, room: Rect, entrances: &Vec<Pos>, rng: &mut im
             }
         }
     }
+    sample_id
 }
