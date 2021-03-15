@@ -34,6 +34,7 @@ const LIGHT_BLUE: NamedColor = (0x77, 0xa7, 0xe5);
 const LIGHT_YELLOW: NamedColor = (0xf8, 0xfc, 0x50);
 const LIGHT_PURPLE: NamedColor = (0xf8, 0x54, 0xf8);
 const DARK_PURPLE: NamedColor = (0xa8, 0x00, 0xa8);
+const DARKER_PURPLE: NamedColor = (0x54, 0x00, 0x54);
 
 impl From<world::Pos> for Point {
     fn from(pos: world::Pos) -> Self {
@@ -318,7 +319,11 @@ impl Ui {
                     printable.fg = RGB::named(DARK_RED);
                 }
                 if world[map_pos].rust {
-                    printable.bg = RGB::named(DARK_PURPLE);
+                    if visible {
+                        printable.bg = RGB::named(DARK_PURPLE);
+                    } else {
+                        printable.bg = RGB::named(DARKER_PURPLE);
+                    }
                 }
                 if let Some(item) = world[map_pos].item {
                     let MobPrintable { fg, symbol } = get_item_printable(item, visible);
