@@ -1,6 +1,7 @@
 use enum_map::{enum_map, Enum, EnumMap};
 use indexmap::map::IndexMap;
 use lazy_static::lazy_static;
+use rand::seq::SliceRandom;
 use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -18,7 +19,13 @@ pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
 pub const MOB_DESCRIPTION_LEN: usize = 30;
 
-pub const EMERGENCY_ANNOUNCEMENTS: [String; 0] = [];
+pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 4] =
+    ["IGOR thanks you for helping keep our facility clean.",
+     "High core temperature detected.",
+     "Plant security is everyone's responsibility. If you \
+      see something, say something!",
+     "Hazard containment level 4. Please shelter in place.",
+    ];
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -1022,6 +1029,13 @@ impl GameState {
 
             if let Some(msg) = self.world.get_announcement() {
                 self.announcements.push_back(msg);
+                self.announcements.push_back(String::from("\n"));
+            }
+
+            if rng.gen::<f32>() < 0.01 {
+                self.announcements.push_back(String::from(
+                    *EMERGENCY_ANNOUNCEMENTS.choose(rng).unwrap(),
+                ));
                 self.announcements.push_back(String::from("\n"));
             }
 

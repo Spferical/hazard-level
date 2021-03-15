@@ -17,7 +17,7 @@ mod map_gen;
 mod world;
 
 const FOV_RANGE: i32 = 8;
-const DESCRIPTION_WIDTH: i32 = 15;
+const DESCRIPTION_WIDTH: i32 = 20;
 const MOB_DESCRIPTION_HEIGHT: i32 = 5;
 
 type NamedColor = (u8, u8, u8);
