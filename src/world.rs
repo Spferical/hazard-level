@@ -27,7 +27,7 @@ pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] =
      "Hazard containment level 4. Please shelter in place.",
      "Researchers on the IGOR project are contributing \
       to a project that furthers all of humanity.",
-     "Did you know that *0* people are working in this \
+     "Did you know that there are *1* people working in this \
       facility right now?",
      "Most accidents are preventable.",
      "IGOR is there for you whenever you need him.",
