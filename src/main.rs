@@ -504,7 +504,7 @@ impl Ui {
             memory_rect.y,
             RGB::named(LIGHT_WHITE),
             RGB::named(DARK_BLUE),
-            format!("{:width$}", "MEMORY", width = DESCRIPTION_WIDTH as usize),
+            format!("{:width$}", "RECALL", width = DESCRIPTION_WIDTH as usize),
         );
 
         fn desc_wrap(txt: &str) -> Vec<String> {

@@ -231,9 +231,48 @@ impl MobKind {
     pub fn mob_description(&self, rng: &mut impl Rng) -> String {
         redact(
             match self {
-                Self::Zombie => "Zombie! Very scary zombie. You feel very scared. Spooky!!",
-                Self::OldMan => "Old man! He is old. You may become old one day. Even scarier.",
-                Self::Alien => "Scary scary Alien!! Definitely not a xenomorph. We definitely wouldn't do that.",
+                Self::Zombie => "As the ??? infection progresses, \
+                                 the patient's retina disintegrates, \
+                                 rendering them partially blind. Patients \
+                                 usually rely on sound and smell to locate \
+                                 food and water. Given medical scans have been \
+                                 unable to determine a neurological cause for \
+                                 the observed behaviors, we suspect that the \
+                                 aggression is at least partially psychological. There \
+                                 is no know cure for ???; palliative care is \
+                                 recommended. Symptoms typically begin with \
+                                 memory loss, followed by difficulty \
+                                 forming coherent sentences, disorientation, \
+                                 paranoia, hallucinations, loss of vision, and eventually \
+                                 aggressive and violent behavior. Paradoxically, \
+                                 the infected often claim to observe \"shadowy\" \
+                                 figures hiding in the periphery of their deteriorating \
+                                 vision.",
+                Self::OldMan => "As of [REDACTED], our researchers have not been \
+                                 able to determine the origin of ????-???-?????. \
+                                 One suspicion is that [REDACTED], also known as \"RED_MAN\", \
+                                 originally emerged from [REDACTED] during the [REDACTED] \
+                                 incident of 2083. In any case, it is essential that RED_MAN \
+                                 is contained within its toroidal confinement zone. RED_MAN \
+                                 has the unique capacity to pass through solid matter, and does \
+                                 so in an effort to hunt down living creatures. RED_MAN has an \
+                                 unusually adapatable, omnivorous diet, and can digest most forms of \
+                                 plant and animal matter. In one particularly extreme example, RED_MAN \
+                                 completely consumed a [REDACTED] carcass over the course of 1.5 hours. \
+                                 The institue contains RED_MAN by exploiting its sensitivity to \
+                                 strong magnetic fields. The containment chamber uses a tokamak-like \
+                                 setup to prevent RED_MAN from escaping and consuming facility \
+                                 personnel.",
+                Self::Alien => "Our partners at [REDACTED] managed to procure a sample of \
+                                [REDACTED] on ??/??/2124. While the supplier would not \
+                                respond to inquires regarding the origin of [REDACTED], \
+                                a more thorough analysis of [REDACTED] believe it must be \
+                                related to the specimen recovered from LV-426. The cell \
+                                wall of skin tissues from [REDACTED], which we nicknamed \
+                                GRAY_TICK, has a thick layer of protein polysacchrides, \
+                                which enhance its resistance to adverse environmental \
+                                conditions. Unlike the LV-426 specimen, GRAY_TICK is \
+                                unable ",
                 Self::Sculpture => "Just a sculpture. Don't think about it too hard. It's not a weeping angle or anything like that",
             },
             rng,
@@ -947,6 +986,10 @@ impl GameState {
             self.announcements.reverse();
             self.announcements.truncate(10);
             self.announcements.reverse();
+
+            self.sensing.reverse();
+            self.sensing.truncate(10);
+            self.sensing.reverse();
         }
         self.update_memory();
 
