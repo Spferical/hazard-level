@@ -19,12 +19,21 @@ pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
 pub const MOB_DESCRIPTION_LEN: usize = 30;
 
-pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 4] =
+pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] =
     ["IGOR thanks you for helping keep our facility clean.",
      "High core temperature detected.",
      "Plant security is everyone's responsibility. If you \
       see something, say something!",
      "Hazard containment level 4. Please shelter in place.",
+     "Researchers on the IGOR project are contributing \
+      to a project that furthers all of humanity.",
+     "Did you know that *0* people are working in this \
+      facility right now?",
+     "Most accidents are preventable.",
+     "IGOR is there for you whenever you need him.",
+     "Need to take a day off? Go ahead! Researchers at IGOR \
+      have unlimited PTO.",
+     "IGOR cares about you."
     ];
 
 macro_rules! round_down {
