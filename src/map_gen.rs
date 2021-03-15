@@ -778,7 +778,6 @@ pub fn generate_world(world: &mut World, seed: u64) {
     // prefab announcements
     for (id, rects) in prefab_rects {
         if let Some(msg) = SEGMENTS[id].2 {
-            println!("announcement {:?}", msg);
             world.pending_announcements.push((rects, msg));
         }
     }

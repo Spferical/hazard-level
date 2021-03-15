@@ -18,6 +18,8 @@ pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
 pub const MOB_DESCRIPTION_LEN: usize = 30;
 
+pub const EMERGENCY_ANNOUNCEMENTS: [String; 0] = [];
+
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
         if $n >= 0 {
@@ -1022,7 +1024,7 @@ impl GameState {
                 self.announcements.push_back(msg);
             }
 
-            self.announcements.truncate(10);
+            self.announcements.truncate(2);
         }
         self.update_memory();
 
