@@ -438,6 +438,7 @@ pub struct World {
     player_damage: i32,
     pub player_ammo: u32,
     pub thing: Thing,
+    pub pending_announcements: Vec<(Vec<Rect>, &'static str)>,
 }
 
 impl Index<Pos> for World {
@@ -584,6 +585,7 @@ impl World {
                 pos: Pos { x: -3, y: 0 },
                 elapsed: 0.0,
             },
+            pending_announcements: Vec::new(),
         }
     }
 
@@ -820,6 +822,14 @@ impl World {
         effects
     }
 
+    pub fn get_announcement(&mut self) -> Option<String> {
+        self.pending_announcements
+            .iter()
+            .position(|rm| rm.0.iter().any(|inner| inner.contains(self.player_pos)))
+            .map(|i| self.pending_announcements.remove(i))
+            .map(|(_rect, msg)| msg.to_string())
+    }
+
     pub fn player_pos(&self) -> Pos {
         self.player_pos
     }
@@ -934,8 +944,8 @@ impl GameState {
             .filter(|(pos, _)| visibility.contains(pos))
             .map(|(pos, mob)| ((self.world.player_pos - *pos).mhn_dist(), mob))
             .min_by_key(|(dist, _)| *dist)
-            .and_then(|mob| Some(mob.1.kind.mob_description(rng)))
-            .unwrap_or(String::new());
+            .map(|mob| mob.1.kind.mob_description(rng))
+            .unwrap_or_else(String::new);
     }
 
     pub fn generate_world(&mut self, seed: u64) {
@@ -1005,6 +1015,10 @@ impl GameState {
                 MissionState::Win => MissionState::Win,
             };
 
+            if let Some(msg) = self.world.get_announcement() {
+                self.announcements.push(msg);
+            }
+
             self.announcements.reverse();
             self.announcements.truncate(10);
             self.announcements.reverse();
@@ -1028,12 +1042,9 @@ impl GameState {
             }
         }
         if self.debug_mode {
-            self.player_memory.mobs.extend(
-                self.world
-                    .mobs
-                    .iter()
-                    .map(|(pos, mob)| (pos.clone(), mob.clone())),
-            );
+            self.player_memory
+                .mobs
+                .extend(self.world.mobs.iter().map(|(pos, mob)| (*pos, mob.clone())));
         }
     }
 }

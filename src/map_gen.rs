@@ -6,9 +6,7 @@ use rand::rngs::SmallRng;
 use rand::Rng;
 use rand::{seq::SliceRandom, SeedableRng};
 
-use image;
-
-use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
+use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World};
 
 pub const SEGMENTS: &[(&[u8], (u32, u32))] = &[
     (include_bytes!("../static/0.png"), (8, 8)),
@@ -716,6 +714,11 @@ pub fn generate_world(world: &mut World, seed: u64) {
         ]);
         world.mobs.insert(rect.topleft(), man);
     }
+
+    // start announcement
+    world
+        .pending_announcements
+        .push((vec![world_rect], "*static*"));
 }
 
 pub fn carve_floor(world: &mut World, pos: Pos, brush_size: u8, tile: TileKind) {
