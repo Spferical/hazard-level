@@ -19,22 +19,22 @@ pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
 pub const MOB_DESCRIPTION_LEN: usize = 30;
 
-pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] =
-    ["IGOR thanks you for helping keep our facility clean.",
-     "High core temperature detected.",
-     "Plant security is everyone's responsibility. If you \
+pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] = [
+    "IGOR thanks you for helping keep our facility clean.",
+    "High core temperature detected.",
+    "Plant security is everyone's responsibility. If you \
       see something, say something!",
-     "Hazard containment level 4. Please shelter in place.",
-     "Researchers on the IGOR project are contributing \
+    "Hazard containment level 4. Please shelter in place.",
+    "Researchers on the IGOR project are contributing \
       to an endeavor that furthers all of humanity.",
-     "Did you know that there are *1* people working in this \
+    "Did you know that there are *1* people working in this \
       facility right now?",
-     "Most accidents are preventable.",
-     "IGOR is there for you whenever you need him.",
-     "Need to take a day off? Go ahead! Researchers at IGOR \
+    "Most accidents are preventable.",
+    "IGOR is there for you whenever you need him.",
+    "Need to take a day off? Go ahead! Researchers at IGOR \
       enjoy unlimited PTO.",
-     "IGOR cares about you."
-    ];
+    "IGOR cares about you.",
+];
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -1042,9 +1042,8 @@ impl GameState {
             }
 
             if rng.gen::<f32>() < 0.01 {
-                self.announcements.push_back(String::from(
-                    *EMERGENCY_ANNOUNCEMENTS.choose(rng).unwrap(),
-                ));
+                self.announcements
+                    .push_back(String::from(*EMERGENCY_ANNOUNCEMENTS.choose(rng).unwrap()));
                 self.announcements.push_back(String::from("\n"));
             }
 
