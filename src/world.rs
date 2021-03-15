@@ -4,11 +4,11 @@ use lazy_static::lazy_static;
 use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::f64::consts::PI;
 use std::ops::Div;
 use std::ops::Sub;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul};
-use std::collections::VecDeque;
 
 use crate::fov;
 use crate::map_gen;

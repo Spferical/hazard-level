@@ -50,8 +50,10 @@ pub const SEGMENTS: &[(&[u8], (u32, u32), Option<&'static str>)] = &[
     (
         include_bytes!("../static/longrooms.png"),
         (20, 5),
-        Some("Please speak with the receptionst and store your personal \
-              belongings in a locker."),
+        Some(
+            "Please speak with the receptionst and store your personal \
+              belongings in a locker.",
+        ),
     ),
     (
         include_bytes!("../static/maze.png"),
@@ -761,7 +763,10 @@ pub fn generate_world(world: &mut World, seed: u64) {
             gen_offices(world, &mut rng, &entrances, room);
         } else if rand <= 0.95 {
             let prefab_id = gen_prefabs(world, room, &entrances, &mut rng);
-            prefab_rects.entry(prefab_id).or_insert_with(|| vec![room]);
+            prefab_rects
+                .entry(prefab_id)
+                .or_insert_with(|| vec![])
+                .push(room);
         } else {
             gen_alien_nest(world, &mut rng, &entrances, room);
             for entrance in entrances {
