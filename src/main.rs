@@ -4,7 +4,6 @@ use crate::world::MobKind;
 use crate::world::PLAYER_MAX_HEALTH;
 use crate::world::{Offset, Pos, TileKind};
 use bracket_lib::prelude::*;
-use chrono::prelude::*;
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -514,7 +513,7 @@ impl Ui {
                 .collect::<Vec<_>>()
         };
 
-        let mut time_rng = SmallRng::seed_from_u64(Local::now().second().into());
+        let mut time_rng = SmallRng::seed_from_u64(self.gs.world.thing.elapsed as u64);
         let mob_text = self.gs.get_mob_text(&mut time_rng);
         self.print_rect(
             ctx,
