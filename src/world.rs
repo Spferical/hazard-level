@@ -32,7 +32,7 @@ pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] =
      "Most accidents are preventable.",
      "IGOR is there for you whenever you need him.",
      "Need to take a day off? Go ahead! Researchers at IGOR \
-      have unlimited PTO.",
+      enjoy unlimited PTO.",
      "IGOR cares about you."
     ];
 
