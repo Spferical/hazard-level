@@ -26,7 +26,7 @@ pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] =
       see something, say something!",
      "Hazard containment level 4. Please shelter in place.",
      "Researchers on the IGOR project are contributing \
-      to a project that furthers all of humanity.",
+      to an endeavor that furthers all of humanity.",
      "Did you know that there are *1* people working in this \
       facility right now?",
      "Most accidents are preventable.",
