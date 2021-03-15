@@ -1,7 +1,7 @@
 [package]
 name = "run"
 version = "1.0.0"
-authors = ["Matthew Pfeiffer <spferical@gmail.com>"]
+authors = ["Matthew Pfeiffer <spferical@gmail.com>", "Srinivas Kaza <kazasrinivas3@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0/MIT"
 
