@@ -278,7 +278,24 @@ impl MobKind {
                                 the microsperm limitation may have introduced as a form of \
                                 genetic engineering; a biological failsafe to prevent \
                                 the explosive growth of [REDACTED].",
-                Self::Sculpture => "Just a sculpture. Don't think about it too hard. It's not a weeping angle or anything like that",
+                Self::Sculpture => "At the moment, facility personnel are advised to \
+                                    maintain a 15-foot distance from [REDACTED], also \
+                                    known as BLUE_MONK. While BLUE_MONK may not \
+                                    appear threatening, we have only started to \
+                                    understand the effects of BLUE_MONK on the \
+                                    human mind. BLUE_MONK is not capable of moving \
+                                    or producing sound when it is being observed. \
+                                    However, when it is _not_ being directly observed \
+                                    facility personnel have noticed high-pitched \
+                                    vocalizations from BLUE_MONK's containment \
+                                    facility. When not directly within line-of-sight \
+                                    of facility personnel, BLUE_MONK is capable of \
+                                    moving at a speed of 15 meters per second, and
+                                    is strong enough to shatter reinforced glass.
+                                    Despite its friendly appearance, and comparisons \
+                                    drawn between the vocalizations and human singing, \
+                                    we urge extreme caution when around BLUE_MONK. Do not \
+                                    let it leave your line of sight.",
             },
             rng,
         )
