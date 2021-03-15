@@ -522,6 +522,7 @@ impl Ui {
             .gs
             .announcements
             .iter()
+            .rev()
             .map(|s| desc_wrap(&s))
             .flatten()
             .map(|s| s.clone())

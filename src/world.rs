@@ -1022,9 +1022,16 @@ impl GameState {
 
             if let Some(msg) = self.world.get_announcement() {
                 self.announcements.push_back(msg);
+                self.announcements.push_back(String::from("\n"));
             }
 
-            self.announcements.truncate(2);
+            self.announcements = self
+                .announcements
+                .drain(..)
+                .rev()
+                .take(8)
+                .rev()
+                .collect::<VecDeque<_>>();
         }
         self.update_memory();
 
