@@ -19,7 +19,6 @@ mod world;
 const FOV_RANGE: i32 = 8;
 const DESCRIPTION_WIDTH: i32 = 15;
 const MOB_DESCRIPTION_HEIGHT: i32 = 5;
-const SENSING_HEIGHT: i32 = 30;
 
 type NamedColor = (u8, u8, u8);
 
@@ -433,24 +432,13 @@ impl Ui {
         map_rect
     }
 
-    fn get_sensing_rect(ctx: &BTerm) -> Rect {
-        let (w, _) = ctx.get_char_size();
-        let map_rect = Rect {
-            x: w as i32 - DESCRIPTION_WIDTH,
-            y: MOB_DESCRIPTION_HEIGHT,
-            w: DESCRIPTION_WIDTH,
-            h: SENSING_HEIGHT,
-        };
-        map_rect
-    }
-
     fn get_announcement_rect(ctx: &BTerm) -> Rect {
         let (w, h) = ctx.get_char_size();
         let map_rect = Rect {
             x: w as i32 - DESCRIPTION_WIDTH,
-            y: MOB_DESCRIPTION_HEIGHT + SENSING_HEIGHT,
+            y: MOB_DESCRIPTION_HEIGHT,
             w: DESCRIPTION_WIDTH,
-            h: h as i32 - 2,
+            h: h as i32 - MOB_DESCRIPTION_HEIGHT - 2,
         };
         map_rect
     }
@@ -495,7 +483,6 @@ impl Ui {
         self.print_multi(ctx, 0, h as i32 - 2, &statusbar);
 
         let memory_rect = Self::get_mob_description_rect(ctx);
-        let sensing_rect = Self::get_sensing_rect(ctx);
         let announcement_rect = Self::get_announcement_rect(ctx);
 
         ctx.print_color(
@@ -519,34 +506,6 @@ impl Ui {
             ctx,
             memory_rect,
             &desc_wrap(&mob_text),
-            RGB::named(LIGHT_WHITE),
-            1,
-        );
-
-        ctx.print_color(
-            sensing_rect.x,
-            sensing_rect.y,
-            RGB::named(LIGHT_WHITE),
-            RGB::named(DARK_GREEN),
-            format!(
-                "{:width$}",
-                "PERCEPTION",
-                width = DESCRIPTION_WIDTH as usize
-            ),
-        );
-
-        let memory_messages = self
-            .gs
-            .sensing
-            .iter()
-            .map(|s| desc_wrap(&s))
-            .flatten()
-            .map(|s| s.clone())
-            .collect::<Vec<_>>();
-        self.print_rect(
-            ctx,
-            memory_rect,
-            &memory_messages,
             RGB::named(LIGHT_WHITE),
             1,
         );

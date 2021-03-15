@@ -9,16 +9,81 @@ use rand::{seq::SliceRandom, SeedableRng};
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World};
 
 pub const SEGMENTS: &[(&[u8], (u32, u32), Option<&'static str>)] = &[
-    (include_bytes!("../static/0.png"), (8, 8), Some("*static*")),
-    (include_bytes!("../static/1.png"), (16, 16), None), // make more stuff
-    (include_bytes!("../static/cells.png"), (20, 20), None),
-    (include_bytes!("../static/dining.png"), (17, 17), None),
-    (include_bytes!("../static/house.png"), (11, 7), None),
-    (include_bytes!("../static/longrooms.png"), (20, 5), None),
-    (include_bytes!("../static/maze.png"), (12, 12), None),
-    (include_bytes!("../static/rooms.png"), (10, 10), None),
-    (include_bytes!("../static/shelves.png"), (20, 20), None),
-    (include_bytes!("../static/x.png"), (12, 12), None),
+    (
+        include_bytes!("../static/0.png"),
+        (8, 8),
+        Some(
+            "Welcome to the the entrance hall. Please speak with the receptionist \
+             to confirm your registration.",
+        ),
+    ),
+    (
+        include_bytes!("../static/1.png"),
+        (16, 16),
+        Some(
+            "You are not authorized to enter the maintainence tunnels. Please \
+              return to your dormitory.",
+        ),
+    ),
+    (
+        include_bytes!("../static/cells.png"),
+        (20, 20),
+        Some(
+            "There has been a containment breach. Please leave the \
+              high-security cell area at once. If you come across the \
+              monk, do not let it leave your sight.",
+        ),
+    ),
+    (
+        include_bytes!("../static/dining.png"),
+        (17, 17),
+        Some("The dining hall is closed. Tomorrow's special is macaroni."),
+    ),
+    (
+        include_bytes!("../static/house.png"),
+        (11, 7),
+        Some(
+            "Thank you for returning to your dormitory. Please shelter \
+              in place until the containment hazard level returns to normal.",
+        ),
+    ),
+    (
+        include_bytes!("../static/longrooms.png"),
+        (20, 5),
+        Some("Please speak with the receptionst and store your personal \
+              belongings in a locker."),
+    ),
+    (
+        include_bytes!("../static/maze.png"),
+        (12, 12),
+        Some(
+            "Thank you for staying calm while the hazard level \
+             returns to normal.",
+        ),
+    ),
+    (
+        include_bytes!("../static/rooms.png"),
+        (10, 10),
+        Some(
+            "We remind you that during an emergency situation, \
+             facility personnel should never enter a room that \
+             does not have more than one door.",
+        ),
+    ),
+    (
+        include_bytes!("../static/shelves.png"),
+        (20, 20),
+        Some("Please scan your ID to access the research library."),
+    ),
+    (
+        include_bytes!("../static/x.png"),
+        (12, 12),
+        Some(
+            "The reactor maintainence area is off limits to \
+              non-emergency personnel. Please return to your \
+              dormitory.",
+        ),
+    ),
 ];
 
 macro_rules! avg {
@@ -708,6 +773,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
     // prefab announcements
     for (id, rects) in prefab_rects {
         if let Some(msg) = SEGMENTS[id].2 {
+            println!("announcement {:?}", msg);
             world.pending_announcements.push((rects, msg));
         }
     }

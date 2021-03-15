@@ -8,6 +8,7 @@ use std::f64::consts::PI;
 use std::ops::Div;
 use std::ops::Sub;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul};
+use std::collections::VecDeque;
 
 use crate::fov;
 use crate::map_gen;
@@ -917,8 +918,7 @@ pub struct GameState {
     pub state: MissionState,
 
     pub most_recent_mob: Option<MobKind>,
-    pub sensing: Vec<String>,
-    pub announcements: Vec<String>,
+    pub announcements: VecDeque<String>,
 }
 
 impl GameState {
@@ -930,8 +930,7 @@ impl GameState {
             state: MissionState::Start,
 
             most_recent_mob: None,
-            sensing: Vec::new(),
-            announcements: Vec::new(),
+            announcements: VecDeque::new(),
         }
     }
 
@@ -1020,16 +1019,10 @@ impl GameState {
             };
 
             if let Some(msg) = self.world.get_announcement() {
-                self.announcements.push(msg);
+                self.announcements.push_back(msg);
             }
 
-            self.announcements.reverse();
             self.announcements.truncate(10);
-            self.announcements.reverse();
-
-            self.sensing.reverse();
-            self.sensing.truncate(10);
-            self.sensing.reverse();
         }
         self.update_memory();
 
