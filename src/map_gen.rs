@@ -11,11 +11,16 @@ use image;
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World, DIRECTIONS};
 
 pub const SEGMENTS: &[(&[u8], (u32, u32))] = &[
-    (include_bytes!("../static/0.png"), (10, 10)),
+    (include_bytes!("../static/0.png"), (8, 8)),
     (include_bytes!("../static/1.png"), (16, 16)), // make more stuff
     (include_bytes!("../static/cells.png"), (20, 20)),
+    (include_bytes!("../static/dining.png"), (17, 17)),
+    (include_bytes!("../static/house.png"), (11, 7)),
+    (include_bytes!("../static/longrooms.png"), (20, 5)),
     (include_bytes!("../static/maze.png"), (12, 12)),
+    (include_bytes!("../static/rooms.png"), (10, 10)),
     (include_bytes!("../static/shelves.png"), (20, 20)),
+    (include_bytes!("../static/x.png"), (12, 12)),
 ];
 
 macro_rules! avg {
