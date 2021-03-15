@@ -15,6 +15,7 @@ use crate::map_gen;
 pub const CHUNKSIZE: usize = 16;
 pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
+pub const MOB_DESCRIPTION_LEN: usize = 15;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -205,6 +206,18 @@ pub enum MobKind {
     Sculpture,
 }
 
+fn redact(txt: &str, rng: &mut impl Rng) -> String {
+    let sample_len = MOB_DESCRIPTION_LEN.min(txt.len());
+    let start_index = rng.gen_range(0..(txt.len() - sample_len));
+
+    let txt_substr = &txt[start_index..(start_index + sample_len)];
+    let redacted = txt_substr
+        .chars()
+        .map(|a| if rng.gen::<f32>() < 0.1 { '?' } else { a })
+        .collect::<String>();
+    return format!("...{}...", redacted);
+}
+
 impl MobKind {
     fn max_health(&self) -> u32 {
         match self {
@@ -215,13 +228,16 @@ impl MobKind {
         }
     }
 
-    pub fn mob_description(&self) -> &'static str {
-        match self {
-            Self::Zombie => "Zombie!",
-            Self::OldMan => "Old man!",
-            Self::Alien => "Scary scary Alien!!",
-            Self::Sculpture => "just a sculpture",
-        }
+    pub fn mob_description(&self, rng: &mut impl Rng) -> String {
+        redact(
+            match self {
+                Self::Zombie => "Zombie! Very scary zombie. You feel very scared. Spooky!!",
+                Self::OldMan => "Old man! He is old. You may become old one day. Even scarier.",
+                Self::Alien => "Scary scary Alien!! Definitely not a xenomorph. We definitely wouldn't do that.",
+                Self::Sculpture => "Just a sculpture. Don't think about it too hard. It's not a weeping angle or anything like that",
+            },
+            rng,
+        )
     }
 }
 
@@ -848,18 +864,17 @@ impl GameState {
         self.world.player_damage >= PLAYER_MAX_HEALTH && !self.debug_mode
     }
 
-    pub fn get_mob_text(&self) -> String {
+    pub fn get_mob_text(&self, rng: &mut impl Rng) -> String {
         let visibility = fov::calculate_fov(self.world.player_pos, FOV_RANGE, &self.world);
-        return String::from(
-            self.world
-                .mobs
-                .iter()
-                .filter(|(pos, _)| visibility.contains(pos))
-                .map(|(pos, mob)| ((self.world.player_pos - *pos).mhn_dist(), mob))
-                .min_by_key(|(dist, _)| *dist)
-                .and_then(|mob| Some(mob.1.kind.mob_description()))
-                .unwrap_or(""),
-        );
+        return self
+            .world
+            .mobs
+            .iter()
+            .filter(|(pos, _)| visibility.contains(pos))
+            .map(|(pos, mob)| ((self.world.player_pos - *pos).mhn_dist(), mob))
+            .min_by_key(|(dist, _)| *dist)
+            .and_then(|mob| Some(mob.1.kind.mob_description(rng)))
+            .unwrap_or(String::new());
     }
 
     pub fn generate_world(&mut self, seed: u64) {
