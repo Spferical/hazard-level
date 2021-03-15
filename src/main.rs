@@ -400,7 +400,7 @@ impl Ui {
             if y >= rect.y + rect.h {
                 break;
             }
-            ctx.print_color(rect.x, y, color, RGB::named(DARK_BLACK), text);
+            ctx.print_color(rect.x, y, color, RGB::named((0x00, 0x00, 0x00)), text);
             y += 1;
         }
     }

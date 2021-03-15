@@ -943,8 +943,13 @@ impl GameState {
                 }
                 MissionState::Win => MissionState::Win,
             };
+
+            self.announcements.reverse();
+            self.announcements.truncate(10);
+            self.announcements.reverse();
         }
         self.update_memory();
+
         effects
     }
 
