@@ -15,7 +15,7 @@ use crate::map_gen;
 pub const CHUNKSIZE: usize = 16;
 pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
-pub const MOB_DESCRIPTION_LEN: usize = 20;
+pub const MOB_DESCRIPTION_LEN: usize = 30;
 
 macro_rules! round_down {
     ($n:expr, $d:expr) => {
@@ -272,7 +272,12 @@ impl MobKind {
                                 GRAY_TICK, has a thick layer of protein polysacchrides, \
                                 which enhance its resistance to adverse environmental \
                                 conditions. Unlike the LV-426 specimen, GRAY_TICK is \
-                                unable ",
+                                unable to reproduce without externally-introduced \
+                                microsperm. The lifecycle of GRAY_TICK resembles \
+                                primitive Earth-basd bryophytes, and we suspect that \
+                                the microsperm limitation may have introduced as a form of \
+                                genetic engineering; a biological failsafe to prevent \
+                                the explosive growth of [REDACTED].",
                 Self::Sculpture => "Just a sculpture. Don't think about it too hard. It's not a weeping angle or anything like that",
             },
             rng,
