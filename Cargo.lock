@@ -1598,7 +1598,7 @@ dependencies = [
 
 [[package]]
 name = "run"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bracket-lib",
  "enum-map",
