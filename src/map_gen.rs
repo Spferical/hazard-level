@@ -8,7 +8,7 @@ use rand::{seq::SliceRandom, SeedableRng};
 
 use crate::world::{Item, Mob, MobKind, Offset, Pos, Rect, TileKind, World};
 
-pub const SEGMENTS: &[(&[u8], (u32, u32), Option<&'static str>)] = &[
+pub const SEGMENTS: &[(&[u8], (u32, u32), Option<&str>)] = &[
     (
         include_bytes!("../static/0.png"),
         (8, 8),
@@ -115,23 +115,6 @@ impl From<CarveRoomOpts> for BspSplitOpts {
     }
 }
 
-pub fn carve_room(
-    world: &mut World,
-    room: Rect,
-    adj_rooms: Vec<Rect>,
-    rng: &mut impl Rng,
-    floor: TileKind,
-) {
-    fill_rect(world, room, floor);
-    for adj in adj_rooms {
-        let wall = get_connecting_wall(room, adj).unwrap();
-        let has_door = wall.into_iter().any(|pos| world[pos].kind.is_walkable());
-        if !has_door {
-            carve_floor(world, wall.choose(rng), 0, floor);
-        }
-    }
-}
-
 pub fn carve_rooms_bsp(
     world: &mut World,
     rect: Rect,
@@ -208,18 +191,6 @@ fn get_connecting_wall(room1: Rect, room2: Rect) -> Option<Rect> {
     None
 }
 
-// given rect, get rooms this room can connect to
-// returns vec of (connecting walls, other room)
-fn get_adjacent(room: Rect, rooms: &Vec<Rect>) -> Vec<(Rect, Rect)> {
-    let mut adj = Vec::new();
-    for other in rooms.iter().cloned() {
-        if let Some(wall) = get_connecting_wall(room, other) {
-            adj.push((wall, other));
-        }
-    }
-    adj
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct BspSplitOpts {
     max_width: i32,
@@ -270,17 +241,11 @@ impl RoomGraph {
     fn len(&self) -> usize {
         self.room_adj.len()
     }
-    fn is_connected(&self, rect1: Rect, rect2: Rect) -> bool {
-        self.room_adj
-            .get(&rect1)
-            .map(|adj| adj.contains(&rect2))
-            .unwrap_or(false)
-    }
     fn remove_room(&mut self, rect: Rect) {
         self.room_adj.retain(|r, _| *r != rect);
     }
     fn find_spatially_adjacent(&self, rect: Rect) -> Option<Rect> {
-        for (room, _adjs) in &self.room_adj {
+        for room in self.room_adj.keys() {
             if let Some(_wall) = get_connecting_wall(rect, *room) {
                 return Some(*room);
             }
@@ -301,9 +266,6 @@ impl RoomGraph {
         }
         assert!(bridged);
         self.room_adj.extend(other.room_adj);
-    }
-    fn extend(&mut self, other: RoomGraph) {
-        self.room_adj.extend(other.room_adj)
     }
     fn new() -> Self {
         Self {
@@ -326,21 +288,21 @@ impl RoomGraph {
         self.room_adj.get_mut(&room1).unwrap().push(room2);
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = Rect> + 'a {
+    fn iter(&'_ self) -> impl Iterator<Item = Rect> + '_ {
         self.room_adj.keys().copied()
     }
 }
 
 // returns (rooms, walls between connected rooms in the bsp tree)
 pub fn gen_bsp_tree(rect: Rect, opts: BspSplitOpts, rng: &mut impl Rng) -> BspTree {
-    assert!(opts.min_width * 2 + 1 <= opts.max_width);
-    assert!(opts.min_height * 2 + 1 <= opts.max_height);
+    assert!(opts.min_width * 2 < opts.max_width);
+    assert!(opts.min_height * 2 < opts.max_height);
     #[derive(Clone, Copy, Debug)]
     enum Split {
         X,
         Y,
         None,
-    };
+    }
     let too_wide = (rect.x2 - rect.x1) > opts.max_width;
     let too_tall = (rect.y2 - rect.y1) > opts.max_height;
     let split = match (too_wide, too_tall) {
@@ -395,21 +357,6 @@ pub fn carve_line_drunk(
         }
         pos += dir;
         carve_floor(world, pos, brush_size, tile);
-    }
-}
-
-pub fn box_rect(world: &mut World, rect: Rect, kind: TileKind) {
-    for x in rect.x1..=rect.x2 {
-        for &y in &[rect.y1, rect.y2] {
-            let pos = Pos { x, y };
-            world[pos].kind = kind;
-        }
-    }
-    for y in rect.y1..=rect.y2 {
-        for &x in &[rect.x1, rect.x2] {
-            let pos = Pos { x, y };
-            world[pos].kind = kind;
-        }
     }
 }
 
@@ -551,114 +498,6 @@ fn gen_offices(world: &mut World, rng: &mut impl Rng, entrances: &[Pos], rect: R
     carve_floor(world, Pos { x: 8, y: 0 }, 1, TileKind::Floor);
 }
 
-fn generate_containment(
-    world: &mut World,
-    rng: &mut impl Rng,
-    left_entrance: Pos,
-) -> (Pos, Offset) {
-    // predictable grid of corridors
-    let corridor_width = 2;
-    let room_size = 2;
-    carve_floor(world, left_entrance, 1, TileKind::Floor);
-    // assuming everything's walls already
-    // corridors
-    let corridors_vert = 3;
-    let corridors_horiz = 4;
-    let between_corridors = 3 + room_size * 2;
-    let rect = Rect::new(
-        left_entrance.x,
-        left_entrance.x
-            + corridors_vert * corridor_width
-            + (corridors_vert - 1) * between_corridors
-            - 1,
-        left_entrance.y,
-        left_entrance.y
-            + corridors_horiz * corridor_width
-            + (corridors_horiz - 1) * between_corridors
-            - 1,
-    );
-    // horizontal
-    for i in 0..corridors_horiz {
-        let y1 = rect.y1 + i * (corridor_width + between_corridors);
-        let y2 = y1 + corridor_width - 1;
-        let corr_rect = Rect::new(rect.x1, rect.x2, y1, y2);
-        fill_rect(world, corr_rect, TileKind::Floor);
-    }
-    // vertical
-    for i in 0..corridors_vert {
-        let x1 = rect.x1 + i * (corridor_width + between_corridors);
-        let x2 = x1 + corridor_width - 1;
-        let corr_rect = Rect::new(x1, x2, rect.y1, rect.y2);
-        fill_rect(world, corr_rect, TileKind::Floor);
-    }
-    // rooms
-    let mut rooms = Vec::<Rect>::new();
-    for sq_x in 0..corridors_vert - 1 {
-        for sq_y in 0..corridors_horiz - 1 {
-            let x1 = rect.x1 + sq_x * (corridor_width + between_corridors) + corridor_width;
-            let x2 = rect.x1 + (sq_x + 1) * (corridor_width + between_corridors) - 1;
-            let y1 = rect.y1 + sq_y * (corridor_width + between_corridors) + corridor_width;
-            let y2 = rect.y1 + (sq_y + 1) * (corridor_width + between_corridors) - 1;
-            let block = [
-                Rect::new(x1 + 1, x1 + room_size, y1 + 1, y1 + room_size),
-                Rect::new(x1 + 1, x1 + room_size, y2 - room_size, y2 - 1),
-                Rect::new(x2 - room_size, x2 - 1, y1 + 1, y1 + room_size),
-                Rect::new(x2 - room_size, x2 - 1, y2 - room_size, y2 - 1),
-            ];
-            for room in &block {
-                fill_rect(world, *room, TileKind::Floor);
-            }
-            carve_floor(world, Pos::new(x1 + room_size, y1), 0, TileKind::Floor);
-            carve_floor(world, Pos::new(x2 - room_size, y1), 0, TileKind::Floor);
-            carve_floor(world, Pos::new(x1 + room_size, y2), 0, TileKind::Floor);
-            carve_floor(world, Pos::new(x2 - room_size, y2), 0, TileKind::Floor);
-            rooms.extend(&block);
-        }
-    }
-    let exit = Pos::new(rect.x2, avg!(rect.y1, rect.y2));
-
-    let mut man = Mob::new(MobKind::OldMan);
-    man.patrol = Some(vec![
-        Pos::new(rect.x1 + 1, rect.y1 + 1),
-        Pos::new(rect.x1 + 1, rect.y2 - 1),
-        Pos::new(rect.x2 - 1, rect.y2 - 1),
-        Pos::new(rect.x2 - 1, rect.y1 + 1),
-    ]);
-    world.mobs.insert(exit, man);
-
-    world.thing.pos = exit + Offset { x: -1, y: 0 };
-
-    // spawn some enemies
-    for _ in 0..10 {
-        let room = rooms.choose(rng).unwrap();
-        let x = rng.gen_range(room.x1..=room.x2);
-        let y = rng.gen_range(room.y1..=room.y2);
-        let pos = Pos { x, y };
-        let rand = rng.gen::<f32>();
-        let kind = if rand < 0.1 {
-            MobKind::Alien
-        } else {
-            MobKind::Zombie
-        };
-        world.mobs.insert(pos, Mob::new(kind));
-    }
-
-    // spawn some ammo
-    for _ in 0..2 {
-        loop {
-            let room = rooms.choose(rng).unwrap();
-            let pos = room.choose(rng);
-            if world[pos].item.is_none() {
-                world[pos].item = Some(Item::Ammo);
-                break;
-            }
-        }
-    }
-    // spawn the thing
-
-    (exit, Offset { x: 1, y: 0 })
-}
-
 pub fn sample_until_valid(segment_shape: (u32, u32), rng: &mut impl Rng) -> usize {
     loop {
         let id = rng.gen_range(0..SEGMENTS.len());
@@ -707,8 +546,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
         .iter()
         .filter(|r| r.x2 == world_rect.x2)
         .min_by_key(|r| r.x2)
-        .unwrap()
-        .clone();
+        .unwrap();
     room_graph.remove_room(final_room);
     fill_rect(world, final_room, TileKind::BloodyFloor);
     carve_floor(world, final_room.center(), 0, TileKind::Computer);
@@ -737,11 +575,9 @@ pub fn generate_world(world: &mut World, seed: u64) {
     for room1 in room_graph.iter() {
         for &room2 in room_graph.get_adj(room1).unwrap() {
             let (room1, room2) = sort_rooms(room1, room2);
-            if !rooms_to_door.contains_key(&(room1, room2)) {
-                let wall = get_connecting_wall(room1, room2).unwrap();
-                let door = wall.choose(&mut rng);
-                rooms_to_door.insert((room1, room2), door);
-            }
+            rooms_to_door
+                .entry((room1, room2))
+                .or_insert_with(|| get_connecting_wall(room1, room2).unwrap().choose(&mut rng));
         }
     }
 
@@ -765,7 +601,7 @@ pub fn generate_world(world: &mut World, seed: u64) {
             let prefab_id = gen_prefabs(world, room, &entrances, &mut rng);
             prefab_rects
                 .entry(prefab_id)
-                .or_insert_with(|| vec![])
+                .or_insert_with(Vec::new)
                 .push(room);
         } else {
             gen_alien_nest(world, &mut rng, &entrances, room);

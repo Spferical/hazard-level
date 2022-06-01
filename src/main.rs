@@ -9,7 +9,6 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use rand::SeedableRng;
 use std::collections::HashSet;
-use textwrap;
 
 mod fov;
 #[macro_use]
@@ -208,8 +207,10 @@ impl Ui {
     }
 
     fn handle_effects(&mut self, ctx: &mut BTerm, map_rect: Rect, seen: &HashSet<Pos>) {
-        let effects: Vec<_> = self.effects.drain(..).collect();
-        self.effects = effects
+        self.effects = self
+            .effects
+            .drain(..)
+            .collect::<Vec<_>>()
             .into_iter()
             .filter_map(|eff| match eff {
                 Effect::Line {
@@ -375,17 +376,18 @@ impl Ui {
         }
         let thing_fov = fov::calculate_fov(thing_pos, FOV_RANGE, &self.gs.world);
         for pos in thing_fov {
-            if seen.contains(&pos) && self.gs.world[pos].kind.is_walkable() {
-                if self.rng.gen::<f32>() < 0.1 {
-                    let screen_pos = self.map_to_screen(pos, screen_rect);
-                    ctx.print_color(
-                        screen_pos.x,
-                        screen_pos.y,
-                        RGB::named(BLACK),
-                        RGB::named(BLACK),
-                        " ",
-                    );
-                }
+            if seen.contains(&pos)
+                && self.gs.world[pos].kind.is_walkable()
+                && self.rng.gen::<f32>() < 0.1
+            {
+                let screen_pos = self.map_to_screen(pos, screen_rect);
+                ctx.print_color(
+                    screen_pos.x,
+                    screen_pos.y,
+                    RGB::named(BLACK),
+                    RGB::named(BLACK),
+                    " ",
+                );
             }
         }
     }
@@ -417,47 +419,43 @@ impl Ui {
 
     fn get_map_rect(ctx: &BTerm) -> Rect {
         let (w, h) = ctx.get_char_size();
-        let map_rect = Rect {
+        Rect {
             x: 0,
             y: 0,
             w: w as i32 - DESCRIPTION_WIDTH,
             h: h as i32 - 2,
-        };
-        map_rect
+        }
     }
 
     fn get_mob_description_rect(ctx: &BTerm) -> Rect {
         let (w, _) = ctx.get_char_size();
-        let map_rect = Rect {
+        Rect {
             x: w as i32 - DESCRIPTION_WIDTH,
             y: 0,
             w: DESCRIPTION_WIDTH,
             h: MOB_DESCRIPTION_HEIGHT as i32,
-        };
-        map_rect
+        }
     }
 
     fn get_announcement_rect(ctx: &BTerm) -> Rect {
         let (w, h) = ctx.get_char_size();
-        let map_rect = Rect {
+        Rect {
             x: w as i32 - DESCRIPTION_WIDTH,
             y: MOB_DESCRIPTION_HEIGHT,
             w: DESCRIPTION_WIDTH,
             h: h as i32 - MOB_DESCRIPTION_HEIGHT - 2,
-        };
-        map_rect
+        }
     }
 
     fn draw(&mut self, ctx: &mut BTerm) {
-        let (w, h) = ctx.get_char_size();
+        let (_w, h) = ctx.get_char_size();
         let map_rect = Self::get_map_rect(ctx);
         let player_pos = self.gs.world.player_pos();
         let seen = fov::calculate_fov(player_pos, FOV_RANGE, &self.gs.world);
         self.draw_map(ctx, map_rect, &seen);
         self.handle_effects(ctx, map_rect, &seen);
 
-        let mut statusbar = Vec::new();
-        statusbar.push(("ammo:".to_string(), RGB::named(LIGHT_WHITE)));
+        let mut statusbar = vec![("ammo:".to_string(), RGB::named(LIGHT_WHITE))];
         let color = match self.gs.world.player_ammo {
             0 => RGB::named(DARK_RED),
             1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 => RGB::named(LIGHT_RED),
@@ -503,7 +501,7 @@ impl Ui {
                 .iter()
                 .map(|txt| String::from(txt.clone()))
                 .collect::<Vec<_>>()
-        };
+        }
 
         let mut time_rng = SmallRng::seed_from_u64(self.gs.world.thing.elapsed as u64);
         let mob_text = self.gs.get_mob_text(&mut time_rng);
@@ -528,9 +526,8 @@ impl Ui {
             .announcements
             .iter()
             .rev()
-            .map(|s| desc_wrap(&s))
+            .map(|s| desc_wrap(s))
             .flatten()
-            .map(|s| s.clone())
             .collect::<Vec<_>>();
         self.print_rect(
             ctx,
@@ -548,7 +545,7 @@ impl Ui {
         );
     }
 
-    fn random_text_effect(self: &mut Self, ctx: &mut BTerm, text: String, time: f32, color: RGB) {
+    fn random_text_effect(&mut self, ctx: &mut BTerm, text: String, time: f32, color: RGB) {
         let (w, h) = ctx.get_char_size();
         let rect = world::Rect {
             x1: 0,

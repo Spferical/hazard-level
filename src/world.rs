@@ -19,7 +19,7 @@ pub const FOV_RANGE: i32 = 8;
 pub const PLAYER_MAX_HEALTH: i32 = 10;
 pub const MOB_DESCRIPTION_LEN: usize = 30;
 
-pub const EMERGENCY_ANNOUNCEMENTS: [&'static str; 10] = [
+pub const EMERGENCY_ANNOUNCEMENTS: [&str; 10] = [
     "IGOR thanks you for helping keep our facility clean.",
     "High core temperature detected.",
     "Plant security is everyone's responsibility. If you \
@@ -743,7 +743,7 @@ impl World {
     }
 
     fn update_mobs(&mut self, effects: &mut Vec<(Pos, Effect)>, rng: &mut impl Rng) {
-        let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, &self);
+        let seen = fov::calculate_fov(self.player_pos, FOV_RANGE, self);
         let poses = self.mobs.keys().copied().collect::<Vec<_>>();
         for pos in poses {
             let mut mob = self.mobs.remove(&pos).unwrap();
