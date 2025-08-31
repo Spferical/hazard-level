@@ -672,6 +672,7 @@ fn main() {
     let context = BTermBuilder::simple80x50()
         .with_title("Run")
         .with_fps_cap(30.0)
+        .with_fitscreen(true)
         .build()
         .unwrap();
     let ui = Ui {
